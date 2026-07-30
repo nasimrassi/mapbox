@@ -44,6 +44,41 @@
           </div>
         </details>
 
+        <details class="tool-section" open>
+          <summary>Director</summary>
+          <div class="section-body">
+            <label class="field">
+              <span>Modo visor</span>
+              <select id="viewerModeSelect">
+                <option value="animation" selected>Animacion</option>
+                <option value="director">Director</option>
+              </select>
+            </label>
+
+            <div class="button-row">
+              <button id="loadProjectRouteButton" type="button">Cargar ruta del proyecto</button>
+              <button id="addPointButton" type="button">Agregar punto</button>
+              <button id="undoPointButton" type="button">Deshacer punto</button>
+              <button id="clearRouteButton" type="button">Limpiar ruta</button>
+              <button id="saveShotButton" type="button">Guardar toma</button>
+              <button id="generateRouteButton" type="button">Generar animacion</button>
+            </div>
+
+            <ol id="routePointList" class="route-point-list"></ol>
+
+            <div class="shortcut-grid" aria-label="Atajos de teclado">
+              <span><kbd>R</kbd> ruta proyecto</span>
+              <span><kbd>A</kbd> punto</span>
+              <span><kbd>Z</kbd> deshacer</span>
+              <span><kbd>X</kbd> limpiar</span>
+              <span><kbd>G</kbd> generar</span>
+              <span><kbd>K</kbd> toma</span>
+              <span><kbd>C</kbd> PNG</span>
+              <span><kbd>Space</kbd> preview</span>
+            </div>
+          </div>
+        </details>
+
         <details class="tool-section">
           <summary>Look</summary>
           <div class="section-body">

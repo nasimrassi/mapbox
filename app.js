@@ -2,6 +2,9 @@ const MAPBOX_TOKEN_KEY = "mapbox-video-studio-token";
 const NASA_CLOUD_SOURCE_ID = "nasa-blue-marble-clouds";
 const NASA_CLOUD_LAYER_ID = "nasa-blue-marble-clouds-layer";
 const NASA_CLOUD_TEXTURE = "./assets/nasa-blue-marble-clouds.jpg";
+const ROUTE_SOURCE_ID = "director-route";
+const ROUTE_LINE_LAYER_ID = "director-route-line";
+const ROUTE_POINT_LAYER_ID = "director-route-points";
 const TERRAIN_SOURCE_ID = "mapbox-terrain-dem";
 const CLOUD_OPACITY = {
   off: 0,
@@ -119,6 +122,12 @@ const els = {
   previewButton: document.querySelector("#previewButton"),
   recordButton: document.querySelector("#recordButton"),
   stillButton: document.querySelector("#stillButton"),
+  loadProjectRouteButton: document.querySelector("#loadProjectRouteButton"),
+  addPointButton: document.querySelector("#addPointButton"),
+  undoPointButton: document.querySelector("#undoPointButton"),
+  clearRouteButton: document.querySelector("#clearRouteButton"),
+  generateRouteButton: document.querySelector("#generateRouteButton"),
+  saveShotButton: document.querySelector("#saveShotButton"),
   storySelect: document.querySelector("#storySelect"),
   formatSelect: document.querySelector("#formatSelect"),
   styleSelect: document.querySelector("#styleSelect"),
@@ -128,6 +137,7 @@ const els = {
   objectsSelect: document.querySelector("#objectsSelect"),
   cloudSelect: document.querySelector("#cloudSelect"),
   boundarySelect: document.querySelector("#boundarySelect"),
+  viewerModeSelect: document.querySelector("#viewerModeSelect"),
   resolutionSelect: document.querySelector("#resolutionSelect"),
   fpsInput: document.querySelector("#fpsInput"),
   timelineInput: document.querySelector("#timelineInput"),
@@ -135,11 +145,13 @@ const els = {
   stage: document.querySelector("#stage"),
   statusTitle: document.querySelector("#statusTitle"),
   statusText: document.querySelector("#statusText"),
-  shotList: document.querySelector("#shotList")
+  shotList: document.querySelector("#shotList"),
+  routePointList: document.querySelector("#routePointList")
 };
 
 let map;
 let currentStory = stories[0];
+let routePoints = [];
 let animationFrame = 0;
 let isAnimating = false;
 let recorder;
@@ -165,6 +177,7 @@ function init() {
   }
 
   renderStory();
+  renderRoutePointList();
   bindEvents();
 }
 
@@ -183,7 +196,15 @@ function bindEvents() {
   els.previewButton.addEventListener("click", () => playAnimation(false));
   els.recordButton.addEventListener("click", () => playAnimation(true));
   els.stillButton.addEventListener("click", downloadStillFrame);
+  els.loadProjectRouteButton.addEventListener("click", loadRouteFromProject);
+  els.addPointButton.addEventListener("click", addRoutePointFromCenter);
+  els.undoPointButton.addEventListener("click", undoRoutePoint);
+  els.clearRouteButton.addEventListener("click", clearRoutePoints);
+  els.generateRouteButton.addEventListener("click", generateAnimationFromRoute);
+  els.saveShotButton.addEventListener("click", saveCurrentShot);
   els.timelineInput.addEventListener("input", scrubTimeline);
+  els.viewerModeSelect.addEventListener("change", setViewerMode);
+  document.addEventListener("keydown", handleShortcut);
   els.lightSelect.addEventListener("change", applyBasemapLook);
   els.themeSelect.addEventListener("change", applyBasemapLook);
   els.terrainSelect.addEventListener("change", setTerrainMode);
@@ -192,10 +213,11 @@ function bindEvents() {
   els.boundarySelect.addEventListener("change", setBoundaryVisibility);
 
   els.storySelect.addEventListener("change", () => {
-    currentStory = stories.find((story) => story.id === els.storySelect.value) || stories[0];
+    currentStory = getSelectedStory();
     renderStory();
     jumpToFirstShot();
     setTimelineElapsed(0);
+    setStatus("Proyecto cargado", "La ruta del Director no cambia hasta que uses Cargar ruta del proyecto.");
   });
 
   els.styleSelect.addEventListener("change", () => {
@@ -242,8 +264,8 @@ function createMap(token) {
   });
 
   map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
-  map.scrollZoom.disable();
-  map.dragRotate.disable();
+  setViewerMode();
+  map.on("click", handleMapClick);
 
   map.on("style.load", () => {
     setCleanAtmosphere();
@@ -252,6 +274,7 @@ function createMap(token) {
     simplifyMapLabels();
     setBoundaryVisibility();
     setNasaCloudLayer();
+    ensureRouteLayers();
   });
 
   map.on("load", () => {
@@ -261,6 +284,7 @@ function createMap(token) {
     simplifyMapLabels();
     setBoundaryVisibility();
     setNasaCloudLayer();
+    ensureRouteLayers();
     setStatus("Mapa listo", "Elige una historia, revisa la camara y graba un WebM para llevarlo a tu editor.");
   });
 
@@ -268,6 +292,386 @@ function createMap(token) {
     const message = event?.error?.message || "Revisa el token, internet o permisos del navegador.";
     setStatus("Mapbox reporto un error", message);
   });
+}
+
+function setViewerMode() {
+  if (!map) return;
+
+  const mode = els.viewerModeSelect.value;
+  const isDirector = mode === "director";
+  setMapInteractivity(isDirector, isDirector ? "crosshair" : "");
+
+  if (isDirector) {
+    setStatus("Modo Director activado", "Mueve el mapa libremente; haz click para agregar puntos o guarda tomas.");
+  } else {
+    setStatus("Modo animacion activado", "El visor queda listo para timeline, vista previa y exportacion.");
+  }
+}
+
+function setMapInteractivity(enabled, cursor = "") {
+  if (!map) return;
+
+  setMapInteraction(map.scrollZoom, enabled);
+  setMapInteraction(map.dragPan, enabled);
+  setMapInteraction(map.dragRotate, enabled);
+  setMapInteraction(map.touchZoomRotate, enabled);
+  setMapInteraction(map.keyboard, enabled);
+  setMapInteraction(map.doubleClickZoom, enabled);
+  setMapInteraction(map.boxZoom, enabled);
+  map.getCanvas().style.cursor = cursor;
+}
+
+function setMapInteraction(handler, enabled) {
+  if (!handler) return;
+  if (enabled) {
+    handler.enable();
+  } else {
+    handler.disable();
+  }
+}
+
+function handleMapClick(event) {
+  if (els.viewerModeSelect.value !== "director") return;
+  addRoutePoint([event.lngLat.lng, event.lngLat.lat]);
+}
+
+function loadRouteFromProject() {
+  const selectedStory = getSelectedStory();
+  if (!selectedStory.route?.length) {
+    setStatus("Sin ruta en proyecto", "Este proyecto no tiene puntos de ruta para cargar.");
+    return;
+  }
+
+  routePoints = selectedStory.route.map((point) => roundCoordinate(point));
+  renderRoutePointList();
+  updateRouteLayer();
+  setStatus("Ruta cargada", `Se cargaron ${routePoints.length} puntos de ${selectedStory.location}.`);
+}
+
+function addRoutePointFromCenter() {
+  if (!map) {
+    setStatus("Falta el mapa", "Guarda primero tu token publico de Mapbox.");
+    return;
+  }
+
+  const center = map.getCenter();
+  addRoutePoint([center.lng, center.lat]);
+}
+
+function addRoutePoint(coordinate) {
+  routePoints.push(roundCoordinate(coordinate));
+  renderRoutePointList();
+  updateRouteLayer();
+  setStatus("Punto agregado", `${routePoints.length} punto${routePoints.length === 1 ? "" : "s"} en la ruta.`);
+}
+
+function undoRoutePoint() {
+  if (routePoints.length === 0) {
+    setStatus("Ruta vacia", "No hay puntos para deshacer.");
+    return;
+  }
+
+  routePoints.pop();
+  renderRoutePointList();
+  updateRouteLayer();
+  setStatus("Punto eliminado", `${routePoints.length} punto${routePoints.length === 1 ? "" : "s"} en la ruta.`);
+}
+
+function clearRoutePoints() {
+  resetRouteDraft();
+  setStatus("Ruta limpia", "Marca nuevos puntos en el mapa o agrega el centro actual.");
+}
+
+function generateAnimationFromRoute() {
+  if (routePoints.length < 2) {
+    setStatus("Faltan puntos", "Marca por lo menos dos puntos para generar una animacion.");
+    return;
+  }
+
+  const route = routePoints.map((point) => [...point]);
+  const shots = createRouteShots(route);
+  currentStory = {
+    id: "ruta-personalizada",
+    location: "Ruta personalizada",
+    episode: `${route.length} puntos`,
+    route,
+    shots
+  };
+
+  renderStory();
+  updateRouteLayer();
+  setTimelineElapsed(0, true);
+  setStatus("Animacion generada", "Revisa el timeline, guarda tomas extra o exporta el video.");
+}
+
+function saveCurrentShot() {
+  if (!map) {
+    setStatus("Falta el mapa", "Guarda primero tu token publico de Mapbox.");
+    return;
+  }
+
+  const center = map.getCenter();
+  const shots = currentStory.shots.map((shot) => ({ ...shot }));
+  if (shots.length > 0 && shots[shots.length - 1].duration === 0) {
+    shots[shots.length - 1].duration = 2600;
+  }
+
+  shots.push({
+    label: `Toma ${shots.length + 1}`,
+    center: roundCoordinate([center.lng, center.lat]),
+    zoom: Number(map.getZoom().toFixed(2)),
+    pitch: Number(map.getPitch().toFixed(0)),
+    bearing: Number(map.getBearing().toFixed(0)),
+    duration: 0
+  });
+
+  currentStory = {
+    ...currentStory,
+    animation: "keyframes",
+    shots
+  };
+
+  renderStory();
+  setTimelineElapsed(getAnimationDuration());
+  setStatus("Toma guardada", "La vista actual se agrego al final de la animacion.");
+}
+
+function handleShortcut(event) {
+  if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+
+  const key = event.key.toLowerCase();
+  if (key === "r") {
+    event.preventDefault();
+    loadRouteFromProject();
+  } else if (key === "a") {
+    event.preventDefault();
+    addRoutePointFromCenter();
+  } else if (key === "z") {
+    event.preventDefault();
+    undoRoutePoint();
+  } else if (key === "x") {
+    event.preventDefault();
+    clearRoutePoints();
+  } else if (key === "g") {
+    event.preventDefault();
+    generateAnimationFromRoute();
+  } else if (key === "k") {
+    event.preventDefault();
+    saveCurrentShot();
+  } else if (key === "c") {
+    event.preventDefault();
+    downloadStillFrame();
+  } else if (event.code === "Space" && !isAnimating) {
+    event.preventDefault();
+    playAnimation(false);
+  }
+}
+
+function isTypingTarget(target) {
+  return target instanceof HTMLElement &&
+    (target.matches("input, select, textarea") || target.isContentEditable);
+}
+
+function getSelectedStory() {
+  return stories.find((story) => story.id === els.storySelect.value) || stories[0];
+}
+
+function resetRouteDraft() {
+  routePoints = [];
+  renderRoutePointList();
+  updateRouteLayer();
+}
+
+function renderRoutePointList() {
+  els.routePointList.innerHTML = "";
+
+  if (routePoints.length === 0) {
+    const item = document.createElement("li");
+    item.textContent = "Sin puntos marcados";
+    els.routePointList.append(item);
+    return;
+  }
+
+  routePoints.forEach((point, index) => {
+    const item = document.createElement("li");
+    item.textContent = `${index + 1}. ${point[1].toFixed(4)}, ${point[0].toFixed(4)}`;
+    els.routePointList.append(item);
+  });
+}
+
+function ensureRouteLayers() {
+  if (!map || !map.isStyleLoaded()) return;
+
+  if (!map.getSource(ROUTE_SOURCE_ID)) {
+    map.addSource(ROUTE_SOURCE_ID, {
+      type: "geojson",
+      data: getRouteGeoJson()
+    });
+  }
+
+  if (!map.getLayer(ROUTE_LINE_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_LINE_LAYER_ID,
+      type: "line",
+      source: ROUTE_SOURCE_ID,
+      filter: ["==", ["geometry-type"], "LineString"],
+      paint: {
+        "line-color": "#ffca57",
+        "line-width": 4,
+        "line-opacity": 0.88
+      }
+    });
+  }
+
+  if (!map.getLayer(ROUTE_POINT_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_POINT_LAYER_ID,
+      type: "circle",
+      source: ROUTE_SOURCE_ID,
+      filter: ["==", ["geometry-type"], "Point"],
+      paint: {
+        "circle-color": "#30c7a3",
+        "circle-radius": 6,
+        "circle-stroke-color": "#071712",
+        "circle-stroke-width": 2
+      }
+    });
+  }
+
+  updateRouteLayer();
+}
+
+function updateRouteLayer() {
+  if (!map || !map.isStyleLoaded()) return;
+
+  const source = map.getSource(ROUTE_SOURCE_ID);
+  if (source) {
+    source.setData(getRouteGeoJson());
+  } else {
+    ensureRouteLayers();
+  }
+}
+
+function getRouteGeoJson() {
+  const features = routePoints.map((point, index) => ({
+    type: "Feature",
+    properties: { index: index + 1 },
+    geometry: {
+      type: "Point",
+      coordinates: point
+    }
+  }));
+
+  if (routePoints.length > 1) {
+    features.unshift({
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "LineString",
+        coordinates: routePoints
+      }
+    });
+  }
+
+  return {
+    type: "FeatureCollection",
+    features
+  };
+}
+
+function createRouteShots(route) {
+  const bounds = getRouteBounds(route);
+  const center = [
+    (bounds.minLng + bounds.maxLng) / 2,
+    (bounds.minLat + bounds.maxLat) / 2
+  ];
+  const distance = getRouteDistanceKm(route);
+  const routeZoom = getRouteZoom(distance);
+  const overviewBearing = getPointBearing(route[0], route[route.length - 1]) - 28;
+  const shots = [
+    {
+      label: "Vista general",
+      center,
+      zoom: clamp(routeZoom - 2.1, 1.8, 7),
+      pitch: 18,
+      bearing: overviewBearing,
+      duration: 2200
+    }
+  ];
+
+  route.forEach((point, index) => {
+    const next = route[index + 1] || route[index];
+    shots.push({
+      label: index === 0 ? "Inicio" : index === route.length - 1 ? "Final" : `Punto ${index + 1}`,
+      center: point,
+      zoom: routeZoom,
+      pitch: 58,
+      bearing: getPointBearing(point, next),
+      duration: index === route.length - 1 ? 0 : 2600
+    });
+  });
+
+  return shots;
+}
+
+function getRouteBounds(route) {
+  return route.reduce((bounds, point) => ({
+    minLng: Math.min(bounds.minLng, point[0]),
+    maxLng: Math.max(bounds.maxLng, point[0]),
+    minLat: Math.min(bounds.minLat, point[1]),
+    maxLat: Math.max(bounds.maxLat, point[1])
+  }), {
+    minLng: route[0][0],
+    maxLng: route[0][0],
+    minLat: route[0][1],
+    maxLat: route[0][1]
+  });
+}
+
+function getRouteDistanceKm(route) {
+  let total = 0;
+  for (let index = 1; index < route.length; index += 1) {
+    total += getDistanceKm(route[index - 1], route[index]);
+  }
+  return total;
+}
+
+function getRouteZoom(distance) {
+  if (distance > 3000) return 4.2;
+  if (distance > 1000) return 5.2;
+  if (distance > 300) return 6.4;
+  if (distance > 100) return 7.4;
+  if (distance > 30) return 9.2;
+  return 11.2;
+}
+
+function getPointBearing(from, to) {
+  const lon1 = toRadians(from[0]);
+  const lon2 = toRadians(to[0]);
+  const lat1 = toRadians(from[1]);
+  const lat2 = toRadians(to[1]);
+  const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
+  return (toDegrees(Math.atan2(y, x)) + 360) % 360;
+}
+
+function getDistanceKm(from, to) {
+  const earthRadiusKm = 6371;
+  const latDelta = toRadians(to[1] - from[1]);
+  const lonDelta = toRadians(to[0] - from[0]);
+  const lat1 = toRadians(from[1]);
+  const lat2 = toRadians(to[1]);
+  const a = Math.sin(latDelta / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(lonDelta / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function roundCoordinate(coordinate) {
+  return [
+    Number(coordinate[0].toFixed(6)),
+    Number(coordinate[1].toFixed(6))
+  ];
 }
 
 function simplifyMapLabels() {
@@ -372,7 +776,7 @@ function setNasaCloudLayer() {
         animate: false
       });
 
-      map.addLayer({
+      const cloudLayer = {
         id: NASA_CLOUD_LAYER_ID,
         type: "raster",
         source: NASA_CLOUD_SOURCE_ID,
@@ -380,7 +784,13 @@ function setNasaCloudLayer() {
           "raster-opacity": opacity,
           "raster-fade-duration": 0
         }
-      });
+      };
+
+      if (map.getLayer(ROUTE_LINE_LAYER_ID)) {
+        map.addLayer(cloudLayer, ROUTE_LINE_LAYER_ID);
+      } else {
+        map.addLayer(cloudLayer);
+      }
     })
     .catch(() => {
       setStatus("No se cargaron las nubes", "Revisa que exista assets/nasa-blue-marble-clouds.jpg.");
@@ -512,6 +922,7 @@ async function playAnimation(shouldRecord) {
   map.stop();
   isAnimating = true;
   setControls(false);
+  setMapInteractivity(false);
   jumpToFirstShot();
   await wait(500);
 
@@ -540,6 +951,7 @@ async function playAnimation(shouldRecord) {
   setTimelineElapsed(duration);
   isAnimating = false;
   setControls(true);
+  setViewerMode();
   setStatus(shouldRecord ? "Grabacion finalizada" : "Vista previa finalizada", "Puedes ajustar la historia, el estilo o el formato y volver a grabar.");
 }
 
@@ -760,7 +1172,14 @@ function setControls(enabled) {
   els.previewButton.disabled = !enabled;
   els.recordButton.disabled = !enabled;
   els.stillButton.disabled = !enabled;
+  els.loadProjectRouteButton.disabled = !enabled;
+  els.addPointButton.disabled = !enabled;
+  els.undoPointButton.disabled = !enabled;
+  els.clearRouteButton.disabled = !enabled;
+  els.generateRouteButton.disabled = !enabled;
+  els.saveShotButton.disabled = !enabled;
   els.timelineInput.disabled = !enabled;
+  els.viewerModeSelect.disabled = !enabled;
   els.saveTokenButton.disabled = !enabled;
 }
 
@@ -784,6 +1203,14 @@ function lerp(a, b, t) {
 function lerpAngle(a, b, t) {
   const delta = ((((b - a) % 360) + 540) % 360) - 180;
   return a + delta * t;
+}
+
+function toRadians(degrees) {
+  return degrees * Math.PI / 180;
+}
+
+function toDegrees(radians) {
+  return radians * 180 / Math.PI;
 }
 
 function clamp(value, min, max) {
