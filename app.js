@@ -1,4 +1,12 @@
 const MAPBOX_TOKEN_KEY = "mapbox-video-studio-token";
+const NASA_CLOUD_SOURCE_ID = "nasa-blue-marble-clouds";
+const NASA_CLOUD_LAYER_ID = "nasa-blue-marble-clouds-layer";
+const NASA_CLOUD_TEXTURE = "./assets/nasa-blue-marble-clouds.jpg";
+const CLOUD_OPACITY = {
+  off: 0,
+  subtle: 0.24,
+  cinematic: 0.38
+};
 
 const stories = [
   {
@@ -87,6 +95,7 @@ const els = {
   storySelect: document.querySelector("#storySelect"),
   formatSelect: document.querySelector("#formatSelect"),
   styleSelect: document.querySelector("#styleSelect"),
+  cloudSelect: document.querySelector("#cloudSelect"),
   fpsInput: document.querySelector("#fpsInput"),
   stage: document.querySelector("#stage"),
   statusTitle: document.querySelector("#statusTitle"),
@@ -101,6 +110,7 @@ let isAnimating = false;
 let recorder;
 let recordedChunks = [];
 let recordingDrawFrame = 0;
+let nasaCloudTexturePromise;
 
 init();
 
@@ -136,6 +146,7 @@ function bindEvents() {
 
   els.previewButton.addEventListener("click", () => playAnimation(false));
   els.recordButton.addEventListener("click", () => playAnimation(true));
+  els.cloudSelect.addEventListener("change", setNasaCloudLayer);
 
   els.storySelect.addEventListener("change", () => {
     currentStory = stories.find((story) => story.id === els.storySelect.value) || stories[0];
@@ -189,11 +200,13 @@ function createMap(token) {
   map.on("style.load", () => {
     setGlobeAtmosphere();
     simplifyMapLabels();
+    setNasaCloudLayer();
   });
 
   map.on("load", () => {
     setGlobeAtmosphere();
     simplifyMapLabels();
+    setNasaCloudLayer();
     setStatus("Mapa listo", "Elige una historia, revisa la camara y graba un WebM para llevarlo a tu editor.");
   });
 
@@ -217,6 +230,83 @@ function simplifyMapLabels() {
       map.setLayoutProperty(layer.id, "visibility", "none");
     }
   });
+}
+
+function setNasaCloudLayer() {
+  if (!map || !map.isStyleLoaded()) return;
+
+  const opacity = CLOUD_OPACITY[els.cloudSelect.value] ?? CLOUD_OPACITY.subtle;
+  if (map.getLayer(NASA_CLOUD_LAYER_ID)) {
+    map.setPaintProperty(NASA_CLOUD_LAYER_ID, "raster-opacity", opacity);
+    return;
+  }
+
+  getNasaCloudTexture()
+    .then((url) => {
+      if (!map || !map.isStyleLoaded() || map.getSource(NASA_CLOUD_SOURCE_ID)) return;
+
+      map.addSource(NASA_CLOUD_SOURCE_ID, {
+        type: "image",
+        url,
+        coordinates: [
+          [-180, 85],
+          [180, 85],
+          [180, -85],
+          [-180, -85]
+        ],
+        animate: false
+      });
+
+      map.addLayer({
+        id: NASA_CLOUD_LAYER_ID,
+        type: "raster",
+        source: NASA_CLOUD_SOURCE_ID,
+        paint: {
+          "raster-opacity": opacity,
+          "raster-fade-duration": 0
+        }
+      });
+    })
+    .catch(() => {
+      setStatus("No se cargaron las nubes", "Revisa que exista assets/nasa-blue-marble-clouds.jpg.");
+    });
+}
+
+function getNasaCloudTexture() {
+  if (!nasaCloudTexturePromise) {
+    nasaCloudTexturePromise = new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(createTransparentCloudTexture(image));
+      image.onerror = reject;
+      image.src = NASA_CLOUD_TEXTURE;
+    });
+  }
+
+  return nasaCloudTexturePromise;
+}
+
+function createTransparentCloudTexture(image) {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  context.drawImage(image, 0, 0);
+
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+  const data = pixels.data;
+
+  for (let index = 0; index < data.length; index += 4) {
+    const luminance = data[index] * 0.2126 + data[index + 1] * 0.7152 + data[index + 2] * 0.0722;
+    const alpha = clamp((luminance - 12) / 180, 0, 1);
+    data[index] = 255;
+    data[index + 1] = 255;
+    data[index + 2] = 255;
+    data[index + 3] = Math.round(alpha * alpha * 255);
+  }
+
+  context.putImageData(pixels, 0, 0);
+  return canvas.toDataURL("image/png");
 }
 
 function setGlobeAtmosphere() {
