@@ -198,13 +198,11 @@ function createMap(token) {
   map.dragRotate.disable();
 
   map.on("style.load", () => {
-    setGlobeAtmosphere();
     simplifyMapLabels();
     setNasaCloudLayer();
   });
 
   map.on("load", () => {
-    setGlobeAtmosphere();
     simplifyMapLabels();
     setNasaCloudLayer();
     setStatus("Mapa listo", "Elige una historia, revisa la camara y graba un WebM para llevarlo a tu editor.");
@@ -307,12 +305,6 @@ function createTransparentCloudTexture(image) {
 
   context.putImageData(pixels, 0, 0);
   return canvas.toDataURL("image/png");
-}
-
-function setGlobeAtmosphere() {
-  if (typeof map?.setFog === "function") {
-    map.setFog({});
-  }
 }
 
 function setBasemapConfig(property, value) {
