@@ -54,14 +54,24 @@
           </label>
         </div>
 
-        <label class="field">
-          <span>Nubes</span>
-          <select id="cloudSelect">
-            <option value="off">Sin nubes</option>
-            <option value="subtle" selected>NASA sutil</option>
-            <option value="cinematic">NASA cine</option>
-          </select>
-        </label>
+        <div class="grid-two">
+          <label class="field">
+            <span>Nubes</span>
+            <select id="cloudSelect">
+              <option value="off">Sin nubes</option>
+              <option value="subtle" selected>NASA sutil</option>
+              <option value="cinematic">NASA cine</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Fronteras</span>
+            <select id="boundarySelect">
+              <option value="hide" selected>Ocultar</option>
+              <option value="show">Mostrar</option>
+            </select>
+          </label>
+        </div>
 
         <div class="button-row">
           <button id="saveTokenButton" type="button">Guardar token</button>

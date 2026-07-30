@@ -96,6 +96,7 @@ const els = {
   formatSelect: document.querySelector("#formatSelect"),
   styleSelect: document.querySelector("#styleSelect"),
   cloudSelect: document.querySelector("#cloudSelect"),
+  boundarySelect: document.querySelector("#boundarySelect"),
   fpsInput: document.querySelector("#fpsInput"),
   stage: document.querySelector("#stage"),
   statusTitle: document.querySelector("#statusTitle"),
@@ -147,6 +148,7 @@ function bindEvents() {
   els.previewButton.addEventListener("click", () => playAnimation(false));
   els.recordButton.addEventListener("click", () => playAnimation(true));
   els.cloudSelect.addEventListener("change", setNasaCloudLayer);
+  els.boundarySelect.addEventListener("change", setBoundaryVisibility);
 
   els.storySelect.addEventListener("change", () => {
     currentStory = stories.find((story) => story.id === els.storySelect.value) || stories[0];
@@ -200,12 +202,14 @@ function createMap(token) {
   map.on("style.load", () => {
     setCleanAtmosphere();
     simplifyMapLabels();
+    setBoundaryVisibility();
     setNasaCloudLayer();
   });
 
   map.on("load", () => {
     setCleanAtmosphere();
     simplifyMapLabels();
+    setBoundaryVisibility();
     setNasaCloudLayer();
     setStatus("Mapa listo", "Elige una historia, revisa la camara y graba un WebM para llevarlo a tu editor.");
   });
@@ -230,6 +234,29 @@ function simplifyMapLabels() {
       map.setLayoutProperty(layer.id, "visibility", "none");
     }
   });
+}
+
+function setBoundaryVisibility() {
+  if (!map || !map.isStyleLoaded()) return;
+
+  const visibility = els.boundarySelect.value === "show" ? "visible" : "none";
+  const layers = map.getStyle().layers || [];
+  layers.forEach((layer) => {
+    if (isBoundaryLayer(layer)) {
+      map.setLayoutProperty(layer.id, "visibility", visibility);
+    }
+  });
+}
+
+function isBoundaryLayer(layer) {
+  if (layer.type !== "line") return false;
+
+  const id = layer.id.toLowerCase();
+  const sourceLayer = String(layer["source-layer"] || "").toLowerCase();
+  return id.includes("boundary") ||
+    id.includes("admin") ||
+    sourceLayer.includes("boundary") ||
+    sourceLayer.includes("admin");
 }
 
 function setNasaCloudLayer() {
