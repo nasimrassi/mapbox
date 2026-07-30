@@ -126,13 +126,17 @@ button {
   cursor: pointer;
 }
 
-button:nth-child(2) {
+#previewButton {
   color: #071712;
   background: var(--accent-2);
 }
 
-button:nth-child(3) {
-  grid-column: 1 / -1;
+#stillButton {
+  color: #071712;
+  background: #d5ecff;
+}
+
+#recordButton {
   color: var(--text);
   background: #3858ff;
 }
@@ -228,7 +232,4 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  button:nth-child(3) {
-    grid-column: auto;
-  }
 }

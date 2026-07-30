@@ -92,6 +92,7 @@ const els = {
   saveTokenButton: document.querySelector("#saveTokenButton"),
   previewButton: document.querySelector("#previewButton"),
   recordButton: document.querySelector("#recordButton"),
+  stillButton: document.querySelector("#stillButton"),
   storySelect: document.querySelector("#storySelect"),
   formatSelect: document.querySelector("#formatSelect"),
   styleSelect: document.querySelector("#styleSelect"),
@@ -147,6 +148,7 @@ function bindEvents() {
 
   els.previewButton.addEventListener("click", () => playAnimation(false));
   els.recordButton.addEventListener("click", () => playAnimation(true));
+  els.stillButton.addEventListener("click", downloadStillFrame);
   els.cloudSelect.addEventListener("change", setNasaCloudLayer);
   els.boundarySelect.addEventListener("change", setBoundaryVisibility);
 
@@ -190,7 +192,8 @@ function createMap(token) {
         showPointOfInterestLabels: false,
         showRoadLabels: false,
         showTransitLabels: false,
-        showPlaceLabels: false
+        showPlaceLabels: false,
+        showAdminBoundaries: false
       }
     }
   });
@@ -239,7 +242,10 @@ function simplifyMapLabels() {
 function setBoundaryVisibility() {
   if (!map || !map.isStyleLoaded()) return;
 
-  const visibility = els.boundarySelect.value === "show" ? "visible" : "none";
+  const shouldShow = els.boundarySelect.value === "show";
+  const visibility = shouldShow ? "visible" : "none";
+  setBasemapConfig("showAdminBoundaries", shouldShow);
+
   const layers = map.getStyle().layers || [];
   layers.forEach((layer) => {
     if (isBoundaryLayer(layer)) {
@@ -255,8 +261,11 @@ function isBoundaryLayer(layer) {
   const sourceLayer = String(layer["source-layer"] || "").toLowerCase();
   return id.includes("boundary") ||
     id.includes("admin") ||
+    id.includes("border") ||
+    id.includes("country") ||
     sourceLayer.includes("boundary") ||
-    sourceLayer.includes("admin");
+    sourceLayer.includes("admin") ||
+    sourceLayer.includes("border");
 }
 
 function setNasaCloudLayer() {
@@ -498,6 +507,28 @@ function drawRecordingFrame(context, exportCanvas) {
   recordingDrawFrame = requestAnimationFrame(() => drawRecordingFrame(context, exportCanvas));
 }
 
+function downloadStillFrame() {
+  if (!map) {
+    setStatus("Falta el mapa", "Guarda primero tu token publico de Mapbox.");
+    return;
+  }
+
+  const exportCanvas = document.createElement("canvas");
+  const exportSize = getExportSize();
+  exportCanvas.width = exportSize.width;
+  exportCanvas.height = exportSize.height;
+
+  const context = exportCanvas.getContext("2d");
+  context.drawImage(map.getCanvas(), 0, 0, exportCanvas.width, exportCanvas.height);
+
+  const link = document.createElement("a");
+  const slug = `${currentStory.id}-${els.formatSelect.value.replace(":", "x")}`;
+  link.href = exportCanvas.toDataURL("image/png");
+  link.download = `${slug}-mapbox-still.png`;
+  link.click();
+  setStatus("PNG capturado", "Se descargo una imagen fija del frame actual.");
+}
+
 function getExportSize() {
   const format = els.formatSelect.value;
   if (format === "9:16") return { width: 1080, height: 1920 };
@@ -573,6 +604,7 @@ function setMapCamera(camera) {
 function setControls(enabled) {
   els.previewButton.disabled = !enabled;
   els.recordButton.disabled = !enabled;
+  els.stillButton.disabled = !enabled;
   els.saveTokenButton.disabled = !enabled;
 }
 
