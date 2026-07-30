@@ -87,10 +87,8 @@ const els = {
   storySelect: document.querySelector("#storySelect"),
   formatSelect: document.querySelector("#formatSelect"),
   styleSelect: document.querySelector("#styleSelect"),
-  cloudSelect: document.querySelector("#cloudSelect"),
   fpsInput: document.querySelector("#fpsInput"),
   stage: document.querySelector("#stage"),
-  cloudLayer: document.querySelector("#cloudLayer"),
   statusTitle: document.querySelector("#statusTitle"),
   statusText: document.querySelector("#statusText"),
   shotList: document.querySelector("#shotList")
@@ -103,16 +101,6 @@ let isAnimating = false;
 let recorder;
 let recordedChunks = [];
 let recordingDrawFrame = 0;
-let cloudDrawFrame = 0;
-let cloudStartedAt = performance.now();
-
-const clouds = [
-  { x: 0.04, y: 0.12, size: 0.22, speed: 0.008, opacity: 0.28 },
-  { x: 0.34, y: 0.2, size: 0.18, speed: 0.011, opacity: 0.2 },
-  { x: 0.66, y: 0.1, size: 0.28, speed: 0.006, opacity: 0.24 },
-  { x: 0.82, y: 0.34, size: 0.2, speed: 0.009, opacity: 0.18 },
-  { x: 0.18, y: 0.48, size: 0.24, speed: 0.007, opacity: 0.16 }
-];
 
 init();
 
@@ -132,7 +120,6 @@ function init() {
 
   renderStory();
   bindEvents();
-  startCloudLoop();
 }
 
 function bindEvents() {
@@ -149,7 +136,6 @@ function bindEvents() {
 
   els.previewButton.addEventListener("click", () => playAnimation(false));
   els.recordButton.addEventListener("click", () => playAnimation(true));
-  els.cloudSelect.addEventListener("change", () => drawCloudLayer());
 
   els.storySelect.addEventListener("change", () => {
     currentStory = stories.find((story) => story.id === els.storySelect.value) || stories[0];
@@ -386,87 +372,7 @@ function drawRecordingFrame(context, exportCanvas) {
   const sourceCanvas = map.getCanvas();
   context.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
   context.drawImage(sourceCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
-
-  if (els.cloudSelect.value !== "off") {
-    drawCloudLayer(els.cloudLayer);
-    context.drawImage(els.cloudLayer, 0, 0, exportCanvas.width, exportCanvas.height);
-  }
-
   recordingDrawFrame = requestAnimationFrame(() => drawRecordingFrame(context, exportCanvas));
-}
-
-function startCloudLoop() {
-  cancelAnimationFrame(cloudDrawFrame);
-  const tick = () => {
-    drawCloudLayer();
-    cloudDrawFrame = requestAnimationFrame(tick);
-  };
-  tick();
-}
-
-function drawCloudLayer(targetCanvas = els.cloudLayer) {
-  if (!targetCanvas) return;
-
-  const cloudMode = els.cloudSelect.value;
-  const rect = els.stage.getBoundingClientRect();
-  const pixelRatio = window.devicePixelRatio || 1;
-  const width = Math.max(1, Math.round(rect.width * pixelRatio));
-  const height = Math.max(1, Math.round(rect.height * pixelRatio));
-
-  if (targetCanvas.width !== width) targetCanvas.width = width;
-  if (targetCanvas.height !== height) targetCanvas.height = height;
-
-  const context = targetCanvas.getContext("2d");
-  context.clearRect(0, 0, width, height);
-  if (cloudMode === "off") return;
-
-  context.save();
-  context.scale(pixelRatio, pixelRatio);
-  context.filter = cloudMode === "cinematic" ? "blur(7px)" : "blur(4px)";
-
-  const elapsed = (performance.now() - cloudStartedAt) / 1000;
-  const intensity = cloudMode === "cinematic" ? 1.35 : 0.82;
-
-  clouds.forEach((cloud, index) => {
-    const drift = (cloud.x + elapsed * cloud.speed) % 1.2;
-    const x = (drift - 0.1) * rect.width;
-    const y = cloud.y * rect.height;
-    const size = cloud.size * Math.min(rect.width, rect.height);
-    drawCloud(context, x, y, size, cloud.opacity * intensity, index);
-  });
-
-  context.restore();
-}
-
-function drawCloud(context, x, y, size, opacity, seed) {
-  const pieces = [
-    [-0.45, 0.1, 0.56],
-    [-0.16, -0.08, 0.72],
-    [0.18, -0.02, 0.64],
-    [0.48, 0.12, 0.48],
-    [0.02, 0.2, 0.82]
-  ];
-
-  const gradient = context.createRadialGradient(x, y, size * 0.12, x, y, size * 0.88);
-  gradient.addColorStop(0, `rgba(255, 255, 255, ${opacity})`);
-  gradient.addColorStop(0.62, `rgba(255, 255, 255, ${opacity * 0.56})`);
-  gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-
-  context.fillStyle = gradient;
-  pieces.forEach(([offsetX, offsetY, radius], index) => {
-    const wobble = Math.sin(seed * 9 + index * 1.7) * 0.03;
-    context.beginPath();
-    context.ellipse(
-      x + offsetX * size,
-      y + offsetY * size,
-      size * (radius + wobble),
-      size * radius * 0.38,
-      0,
-      0,
-      Math.PI * 2
-    );
-    context.fill();
-  });
 }
 
 function getExportSize() {
