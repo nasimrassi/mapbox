@@ -43,14 +43,55 @@
             <select id="styleSelect">
               <option value="mapbox://styles/mapbox/standard">Standard</option>
               <option value="mapbox://styles/mapbox/standard-satellite" selected>Satellite</option>
+              <option value="mapbox://styles/mapbox/dark-v11">Dark 2D</option>
               <option value="mapbox://styles/mapbox/outdoors-v12">Outdoors</option>
-              <option value="mapbox://styles/mapbox/navigation-night-v1">Night</option>
+              <option value="mapbox://styles/mapbox/navigation-night-v1">Navigation Night</option>
             </select>
           </label>
 
           <label class="field">
             <span>FPS export</span>
             <input id="fpsInput" type="number" min="24" max="60" value="24">
+          </label>
+        </div>
+
+        <div class="grid-two">
+          <label class="field">
+            <span>Luz</span>
+            <select id="lightSelect">
+              <option value="dawn">Dawn</option>
+              <option value="day">Day</option>
+              <option value="dusk" selected>Dusk</option>
+              <option value="night">Night</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Tema</span>
+            <select id="themeSelect">
+              <option value="default" selected>Default</option>
+              <option value="faded">Faded</option>
+              <option value="monochrome">Monochrome</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid-two">
+          <label class="field">
+            <span>Relieve</span>
+            <select id="terrainSelect">
+              <option value="off">Sin relieve</option>
+              <option value="natural" selected>Natural</option>
+              <option value="dramatic">Dramatico</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Objetos 3D</span>
+            <select id="objectsSelect">
+              <option value="off" selected>Ocultar</option>
+              <option value="show">Mostrar</option>
+            </select>
           </label>
         </div>
 

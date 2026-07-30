@@ -2,10 +2,16 @@ const MAPBOX_TOKEN_KEY = "mapbox-video-studio-token";
 const NASA_CLOUD_SOURCE_ID = "nasa-blue-marble-clouds";
 const NASA_CLOUD_LAYER_ID = "nasa-blue-marble-clouds-layer";
 const NASA_CLOUD_TEXTURE = "./assets/nasa-blue-marble-clouds.jpg";
+const TERRAIN_SOURCE_ID = "mapbox-terrain-dem";
 const CLOUD_OPACITY = {
   off: 0,
   subtle: 0.24,
   cinematic: 0.38
+};
+const TERRAIN_EXAGGERATION = {
+  off: 0,
+  natural: 1.2,
+  dramatic: 1.8
 };
 
 const stories = [
@@ -96,6 +102,10 @@ const els = {
   storySelect: document.querySelector("#storySelect"),
   formatSelect: document.querySelector("#formatSelect"),
   styleSelect: document.querySelector("#styleSelect"),
+  lightSelect: document.querySelector("#lightSelect"),
+  themeSelect: document.querySelector("#themeSelect"),
+  terrainSelect: document.querySelector("#terrainSelect"),
+  objectsSelect: document.querySelector("#objectsSelect"),
   cloudSelect: document.querySelector("#cloudSelect"),
   boundarySelect: document.querySelector("#boundarySelect"),
   fpsInput: document.querySelector("#fpsInput"),
@@ -149,6 +159,10 @@ function bindEvents() {
   els.previewButton.addEventListener("click", () => playAnimation(false));
   els.recordButton.addEventListener("click", () => playAnimation(true));
   els.stillButton.addEventListener("click", downloadStillFrame);
+  els.lightSelect.addEventListener("change", applyBasemapLook);
+  els.themeSelect.addEventListener("change", applyBasemapLook);
+  els.terrainSelect.addEventListener("change", setTerrainMode);
+  els.objectsSelect.addEventListener("change", applyBasemapLook);
   els.cloudSelect.addEventListener("change", setNasaCloudLayer);
   els.boundarySelect.addEventListener("change", setBoundaryVisibility);
 
@@ -189,11 +203,14 @@ function createMap(token) {
     attributionControl: false,
     config: {
       basemap: {
+        lightPreset: els.lightSelect.value,
+        theme: els.themeSelect.value,
         showPointOfInterestLabels: false,
         showRoadLabels: false,
         showTransitLabels: false,
         showPlaceLabels: false,
-        showAdminBoundaries: false
+        showAdminBoundaries: false,
+        show3dObjects: els.objectsSelect.value === "show"
       }
     }
   });
@@ -204,6 +221,8 @@ function createMap(token) {
 
   map.on("style.load", () => {
     setCleanAtmosphere();
+    applyBasemapLook();
+    setTerrainMode();
     simplifyMapLabels();
     setBoundaryVisibility();
     setNasaCloudLayer();
@@ -211,6 +230,8 @@ function createMap(token) {
 
   map.on("load", () => {
     setCleanAtmosphere();
+    applyBasemapLook();
+    setTerrainMode();
     simplifyMapLabels();
     setBoundaryVisibility();
     setNasaCloudLayer();
@@ -266,6 +287,38 @@ function isBoundaryLayer(layer) {
     sourceLayer.includes("boundary") ||
     sourceLayer.includes("admin") ||
     sourceLayer.includes("border");
+}
+
+function applyBasemapLook() {
+  if (!map || !map.isStyleLoaded()) return;
+
+  setBasemapConfig("lightPreset", els.lightSelect.value);
+  setBasemapConfig("theme", els.themeSelect.value);
+  setBasemapConfig("show3dObjects", els.objectsSelect.value === "show");
+}
+
+function setTerrainMode() {
+  if (!map || !map.isStyleLoaded()) return;
+
+  const exaggeration = TERRAIN_EXAGGERATION[els.terrainSelect.value] ?? TERRAIN_EXAGGERATION.natural;
+  if (exaggeration === 0) {
+    map.setTerrain(null);
+    return;
+  }
+
+  if (!map.getSource(TERRAIN_SOURCE_ID)) {
+    map.addSource(TERRAIN_SOURCE_ID, {
+      type: "raster-dem",
+      url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+      tileSize: 512,
+      maxzoom: 14
+    });
+  }
+
+  map.setTerrain({
+    source: TERRAIN_SOURCE_ID,
+    exaggeration
+  });
 }
 
 function setNasaCloudLayer() {
