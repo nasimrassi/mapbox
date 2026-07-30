@@ -115,6 +115,53 @@ select:focus {
   gap: 10px;
 }
 
+.tool-section {
+  display: grid;
+  padding: 16px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.tool-section summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 850;
+  cursor: pointer;
+  list-style: none;
+}
+
+.tool-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-section summary::after {
+  content: "+";
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: #071712;
+  background: var(--accent-2);
+  border-radius: 50%;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.tool-section[open] summary::after {
+  content: "-";
+}
+
+.section-body {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
 button {
   min-height: 42px;
   border: 0;
@@ -137,6 +184,7 @@ button {
 }
 
 #recordButton {
+  grid-column: 1 / -1;
   color: var(--text);
   background: #3858ff;
 }
@@ -146,14 +194,23 @@ button:disabled {
   opacity: 0.55;
 }
 
+.timeline-panel summary span:last-child {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+#timelineInput {
+  min-height: 28px;
+  padding: 0;
+  cursor: pointer;
+  accent-color: var(--accent-2);
+}
+
 .status-card,
 .shot-list {
   display: grid;
-  gap: 10px;
-  padding: 16px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 8px;
 }
 
 .status-card p,

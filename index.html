@@ -16,120 +16,149 @@
           <h1>Mapbox Video Studio</h1>
         </div>
 
-        <label class="field">
-          <span>Token publico de Mapbox</span>
-          <input id="tokenInput" type="password" autocomplete="off" placeholder="pk...">
-        </label>
+        <details class="tool-section" open>
+          <summary>Proyecto</summary>
+          <div class="section-body">
+            <label class="field">
+              <span>Token publico de Mapbox</span>
+              <input id="tokenInput" type="password" autocomplete="off" placeholder="pk...">
+            </label>
 
-        <div class="grid-two">
-          <label class="field">
-            <span>Proyecto</span>
-            <select id="storySelect"></select>
-          </label>
+            <button id="saveTokenButton" type="button">Guardar token</button>
 
-          <label class="field">
-            <span>Formato</span>
-            <select id="formatSelect">
-              <option value="16:9">YouTube 16:9</option>
-              <option value="9:16">Shorts 9:16</option>
-              <option value="1:1">Cuadrado 1:1</option>
-            </select>
-          </label>
-        </div>
+            <div class="grid-two">
+              <label class="field">
+                <span>Proyecto</span>
+                <select id="storySelect"></select>
+              </label>
 
-        <div class="grid-two">
-          <label class="field">
-            <span>Estilo</span>
-            <select id="styleSelect">
-              <option value="mapbox://styles/mapbox/standard">Standard</option>
-              <option value="mapbox://styles/mapbox/standard-satellite" selected>Satellite</option>
-              <option value="mapbox://styles/mapbox/dark-v11">Dark 2D</option>
-              <option value="mapbox://styles/mapbox/outdoors-v12">Outdoors</option>
-              <option value="mapbox://styles/mapbox/navigation-night-v1">Navigation Night</option>
-            </select>
-          </label>
+              <label class="field">
+                <span>Formato</span>
+                <select id="formatSelect">
+                  <option value="16:9">YouTube 16:9</option>
+                  <option value="9:16">Shorts 9:16</option>
+                  <option value="1:1">Cuadrado 1:1</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </details>
 
-          <label class="field">
-            <span>FPS export</span>
-            <input id="fpsInput" type="number" min="24" max="60" value="24">
-          </label>
-        </div>
+        <details class="tool-section">
+          <summary>Look</summary>
+          <div class="section-body">
+            <div class="grid-two">
+              <label class="field">
+                <span>Estilo</span>
+                <select id="styleSelect">
+                  <option value="mapbox://styles/mapbox/standard">Standard</option>
+                  <option value="mapbox://styles/mapbox/standard-satellite" selected>Satellite</option>
+                  <option value="mapbox://styles/mapbox/dark-v11">Dark 2D</option>
+                  <option value="mapbox://styles/mapbox/outdoors-v12">Outdoors</option>
+                  <option value="mapbox://styles/mapbox/navigation-night-v1">Navigation Night</option>
+                </select>
+              </label>
 
-        <div class="grid-two">
-          <label class="field">
-            <span>Luz</span>
-            <select id="lightSelect">
-              <option value="dawn">Dawn</option>
-              <option value="day">Day</option>
-              <option value="dusk" selected>Dusk</option>
-              <option value="night">Night</option>
-            </select>
-          </label>
+              <label class="field">
+                <span>Luz</span>
+                <select id="lightSelect">
+                  <option value="dawn">Dawn</option>
+                  <option value="day">Day</option>
+                  <option value="dusk" selected>Dusk</option>
+                  <option value="night">Night</option>
+                </select>
+              </label>
+            </div>
 
-          <label class="field">
-            <span>Tema</span>
-            <select id="themeSelect">
-              <option value="default" selected>Default</option>
-              <option value="faded">Faded</option>
-              <option value="monochrome">Monochrome</option>
-            </select>
-          </label>
-        </div>
+            <div class="grid-two">
+              <label class="field">
+                <span>Tema</span>
+                <select id="themeSelect">
+                  <option value="default" selected>Default</option>
+                  <option value="faded">Faded</option>
+                  <option value="monochrome">Monochrome</option>
+                </select>
+              </label>
 
-        <div class="grid-two">
-          <label class="field">
-            <span>Relieve</span>
-            <select id="terrainSelect">
-              <option value="off">Sin relieve</option>
-              <option value="natural" selected>Natural</option>
-              <option value="dramatic">Dramatico</option>
-            </select>
-          </label>
+              <label class="field">
+                <span>Relieve</span>
+                <select id="terrainSelect">
+                  <option value="off">Sin relieve</option>
+                  <option value="natural" selected>Natural</option>
+                  <option value="dramatic">Dramatico</option>
+                </select>
+              </label>
+            </div>
 
-          <label class="field">
-            <span>Objetos 3D</span>
-            <select id="objectsSelect">
-              <option value="off" selected>Ocultar</option>
-              <option value="show">Mostrar</option>
-            </select>
-          </label>
-        </div>
+            <div class="grid-two">
+              <label class="field">
+                <span>Objetos 3D</span>
+                <select id="objectsSelect">
+                  <option value="off" selected>Ocultar</option>
+                  <option value="show">Mostrar</option>
+                </select>
+              </label>
 
-        <div class="grid-two">
-          <label class="field">
-            <span>Nubes</span>
-            <select id="cloudSelect">
-              <option value="off">Sin nubes</option>
-              <option value="subtle" selected>NASA sutil</option>
-              <option value="cinematic">NASA cine</option>
-            </select>
-          </label>
+              <label class="field">
+                <span>Nubes</span>
+                <select id="cloudSelect">
+                  <option value="off">Sin nubes</option>
+                  <option value="subtle" selected>NASA sutil</option>
+                  <option value="cinematic">NASA cine</option>
+                </select>
+              </label>
+            </div>
 
-          <label class="field">
-            <span>Fronteras</span>
-            <select id="boundarySelect">
-              <option value="hide" selected>Ocultar</option>
-              <option value="show">Mostrar</option>
-            </select>
-          </label>
-        </div>
+            <label class="field">
+              <span>Fronteras</span>
+              <select id="boundarySelect">
+                <option value="hide" selected>Ocultar</option>
+                <option value="show">Mostrar</option>
+              </select>
+            </label>
+          </div>
+        </details>
 
-        <div class="button-row">
-          <button id="saveTokenButton" type="button">Guardar token</button>
-          <button id="previewButton" type="button">Vista previa</button>
-          <button id="stillButton" type="button">Capturar PNG</button>
-          <button id="recordButton" type="button">Grabar WebM</button>
-        </div>
+        <details class="timeline-panel tool-section" open>
+          <summary>
+            <span>Linea de tiempo</span>
+            <span id="timelineText">0:00 / 0:00</span>
+          </summary>
+          <div class="section-body">
+            <input id="timelineInput" type="range" min="0" max="0" step="16" value="0">
+          </div>
+        </details>
 
-        <section class="status-card" aria-live="polite">
-          <strong id="statusTitle">Listo para configurar</strong>
-          <p id="statusText">Pega tu token publico de Mapbox y guarda. Luego prueba una ruta y graba el mapa animado.</p>
-        </section>
+        <details class="tool-section" open>
+          <summary>Exportar</summary>
+          <div class="section-body">
+            <label class="field">
+              <span>FPS export</span>
+              <input id="fpsInput" type="number" min="24" max="60" value="24">
+            </label>
 
-        <section class="shot-list">
-          <h2>Camara</h2>
-          <ol id="shotList"></ol>
-        </section>
+            <div class="button-row">
+              <button id="previewButton" type="button">Vista previa</button>
+              <button id="stillButton" type="button">Capturar PNG</button>
+              <button id="recordButton" type="button">Grabar WebM</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="status-card tool-section" aria-live="polite">
+          <summary>Estado</summary>
+          <div class="section-body">
+            <strong id="statusTitle">Listo para configurar</strong>
+            <p id="statusText">Pega tu token publico de Mapbox y guarda. Luego prueba una ruta y graba el mapa animado.</p>
+          </div>
+        </details>
+
+        <details class="shot-list tool-section">
+          <summary>Camara</summary>
+          <div class="section-body">
+            <ol id="shotList"></ol>
+          </div>
+        </details>
       </aside>
 
       <section class="stage-wrap">

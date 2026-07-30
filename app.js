@@ -109,6 +109,8 @@ const els = {
   cloudSelect: document.querySelector("#cloudSelect"),
   boundarySelect: document.querySelector("#boundarySelect"),
   fpsInput: document.querySelector("#fpsInput"),
+  timelineInput: document.querySelector("#timelineInput"),
+  timelineText: document.querySelector("#timelineText"),
   stage: document.querySelector("#stage"),
   statusTitle: document.querySelector("#statusTitle"),
   statusText: document.querySelector("#statusText"),
@@ -122,6 +124,7 @@ let isAnimating = false;
 let recorder;
 let recordedChunks = [];
 let recordingDrawFrame = 0;
+let timelineFrame = 0;
 let nasaCloudTexturePromise;
 
 init();
@@ -159,6 +162,7 @@ function bindEvents() {
   els.previewButton.addEventListener("click", () => playAnimation(false));
   els.recordButton.addEventListener("click", () => playAnimation(true));
   els.stillButton.addEventListener("click", downloadStillFrame);
+  els.timelineInput.addEventListener("input", scrubTimeline);
   els.lightSelect.addEventListener("change", applyBasemapLook);
   els.themeSelect.addEventListener("change", applyBasemapLook);
   els.terrainSelect.addEventListener("change", setTerrainMode);
@@ -170,6 +174,7 @@ function bindEvents() {
     currentStory = stories.find((story) => story.id === els.storySelect.value) || stories[0];
     renderStory();
     jumpToFirstShot();
+    setTimelineElapsed(0);
   });
 
   els.styleSelect.addEventListener("change", () => {
@@ -422,6 +427,7 @@ function setBasemapConfig(property, value) {
 
 function renderStory() {
   els.shotList.innerHTML = "";
+  syncTimelineDuration();
 
   currentStory.shots.forEach((shot) => {
     const item = document.createElement("li");
@@ -433,6 +439,46 @@ function renderStory() {
 function jumpToFirstShot() {
   if (!map) return;
   map.jumpTo(getInitialCamera());
+}
+
+function syncTimelineDuration() {
+  const duration = getAnimationDuration();
+  els.timelineInput.max = String(duration);
+  els.timelineInput.value = "0";
+  updateTimelineLabel(0, duration);
+}
+
+function scrubTimeline() {
+  const elapsed = Number(els.timelineInput.value) || 0;
+  cancelAnimationFrame(animationFrame);
+  cancelAnimationFrame(timelineFrame);
+  map?.stop();
+  isAnimating = false;
+  setControls(true);
+  setTimelineElapsed(elapsed, true);
+}
+
+function setTimelineElapsed(elapsed, shouldMoveCamera = false) {
+  const duration = getAnimationDuration();
+  const safeElapsed = clamp(elapsed, 0, duration);
+  els.timelineInput.value = String(Math.round(safeElapsed));
+  updateTimelineLabel(safeElapsed, duration);
+
+  if (shouldMoveCamera && map) {
+    const camera = getCameraAtElapsed(safeElapsed, duration);
+    map.jumpTo(camera);
+  }
+}
+
+function updateTimelineLabel(elapsed, duration) {
+  els.timelineText.textContent = `${formatTimelineTime(elapsed)} / ${formatTimelineTime(duration)}`;
+}
+
+function formatTimelineTime(ms) {
+  const totalSeconds = Math.round(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
 }
 
 async function playAnimation(shouldRecord) {
@@ -455,6 +501,7 @@ async function playAnimation(shouldRecord) {
 
   const duration = getAnimationDuration();
   const startedAt = performance.now();
+  startTimelinePlayback(startedAt, duration);
   setStatus(shouldRecord ? "Grabando" : "Vista previa", `${Math.round(duration / 1000)} segundos de animacion.`);
 
   if (currentStory.animation === "flyTo") {
@@ -468,6 +515,8 @@ async function playAnimation(shouldRecord) {
     stopRecording();
   }
 
+  cancelAnimationFrame(timelineFrame);
+  setTimelineElapsed(duration);
   isAnimating = false;
   setControls(true);
   setStatus(shouldRecord ? "Grabacion finalizada" : "Vista previa finalizada", "Puedes ajustar la historia, el estilo o el formato y volver a grabar.");
@@ -481,8 +530,7 @@ function playKeyframeAnimation(startedAt, duration) {
   return new Promise((resolve) => {
     const tick = (now) => {
       const elapsed = Math.min(now - startedAt, duration);
-      const timeline = getTimelineState(elapsed);
-      const camera = applyGlobeSpin(timeline.camera, elapsed / duration);
+      const camera = getCameraAtElapsed(elapsed, duration);
       map.setFreeCameraOptions ? setMapCamera(camera) : map.jumpTo(camera);
 
       if (elapsed < duration && isAnimating) {
@@ -494,6 +542,21 @@ function playKeyframeAnimation(startedAt, duration) {
 
     animationFrame = requestAnimationFrame(tick);
   });
+}
+
+function startTimelinePlayback(startedAt, duration) {
+  cancelAnimationFrame(timelineFrame);
+
+  const tick = (now) => {
+    const elapsed = Math.min(now - startedAt, duration);
+    setTimelineElapsed(elapsed);
+
+    if (elapsed < duration && isAnimating) {
+      timelineFrame = requestAnimationFrame(tick);
+    }
+  };
+
+  timelineFrame = requestAnimationFrame(tick);
 }
 
 function playNativeFlyToAnimation(duration) {
@@ -620,6 +683,11 @@ function getTimelineState(elapsed) {
   return { camera: shots[shots.length - 1] };
 }
 
+function getCameraAtElapsed(elapsed, duration = getAnimationDuration()) {
+  const timeline = getTimelineState(elapsed);
+  return applyGlobeSpin(timeline.camera, duration === 0 ? 1 : elapsed / duration);
+}
+
 function getInitialCamera() {
   return applyGlobeSpin(currentStory.shots[0], 0);
 }
@@ -658,6 +726,7 @@ function setControls(enabled) {
   els.previewButton.disabled = !enabled;
   els.recordButton.disabled = !enabled;
   els.stillButton.disabled = !enabled;
+  els.timelineInput.disabled = !enabled;
   els.saveTokenButton.disabled = !enabled;
 }
 
