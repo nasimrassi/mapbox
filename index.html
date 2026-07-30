@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mapbox Video Studio</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.css" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="control-panel" aria-label="Controles de animacion">
+        <div class="brand-block">
+          <p class="eyebrow">Coleccionistas de Aventuras</p>
+          <h1>Mapbox Video Studio</h1>
+        </div>
+
+        <label class="field">
+          <span>Token publico de Mapbox</span>
+          <input id="tokenInput" type="password" autocomplete="off" placeholder="pk...">
+        </label>
+
+        <div class="grid-two">
+          <label class="field">
+            <span>Proyecto</span>
+            <select id="storySelect"></select>
+          </label>
+
+          <label class="field">
+            <span>Formato</span>
+            <select id="formatSelect">
+              <option value="16:9">YouTube 16:9</option>
+              <option value="9:16">Shorts 9:16</option>
+              <option value="1:1">Cuadrado 1:1</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid-two">
+          <label class="field">
+            <span>Estilo</span>
+            <select id="styleSelect">
+              <option value="mapbox://styles/mapbox/standard">Standard</option>
+              <option value="mapbox://styles/mapbox/standard-satellite" selected>Satellite</option>
+              <option value="mapbox://styles/mapbox/outdoors-v12">Outdoors</option>
+              <option value="mapbox://styles/mapbox/navigation-night-v1">Night</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>FPS export</span>
+            <input id="fpsInput" type="number" min="24" max="60" value="24">
+          </label>
+        </div>
+
+        <div class="button-row">
+          <button id="saveTokenButton" type="button">Guardar token</button>
+          <button id="previewButton" type="button">Vista previa</button>
+          <button id="recordButton" type="button">Grabar WebM</button>
+        </div>
+
+        <section class="status-card" aria-live="polite">
+          <strong id="statusTitle">Listo para configurar</strong>
+          <p id="statusText">Pega tu token publico de Mapbox y guarda. Luego prueba una ruta y graba el mapa animado.</p>
+        </section>
+
+        <section class="shot-list">
+          <h2>Camara</h2>
+          <ol id="shotList"></ol>
+        </section>
+      </aside>
+
+      <section class="stage-wrap">
+        <div id="stage" class="stage format-16-9">
+          <div id="map"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
