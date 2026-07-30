@@ -198,11 +198,13 @@ function createMap(token) {
   map.dragRotate.disable();
 
   map.on("style.load", () => {
+    setCleanAtmosphere();
     simplifyMapLabels();
     setNasaCloudLayer();
   });
 
   map.on("load", () => {
+    setCleanAtmosphere();
     simplifyMapLabels();
     setNasaCloudLayer();
     setStatus("Mapa listo", "Elige una historia, revisa la camara y graba un WebM para llevarlo a tu editor.");
@@ -305,6 +307,18 @@ function createTransparentCloudTexture(image) {
 
   context.putImageData(pixels, 0, 0);
   return canvas.toDataURL("image/png");
+}
+
+function setCleanAtmosphere() {
+  if (typeof map?.setFog !== "function") return;
+
+  map.setFog({
+    color: "rgb(225, 242, 255)",
+    "high-color": "rgb(86, 151, 220)",
+    "horizon-blend": 0.04,
+    "space-color": "rgb(3, 7, 18)",
+    "star-intensity": 0.18
+  });
 }
 
 function setBasemapConfig(property, value) {
