@@ -54,6 +54,15 @@
           </label>
         </div>
 
+        <label class="field">
+          <span>Nubes</span>
+          <select id="cloudSelect">
+            <option value="off">Sin nubes</option>
+            <option value="soft" selected>Nubes suaves</option>
+            <option value="cinematic">Nubes cinematicas</option>
+          </select>
+        </label>
+
         <div class="button-row">
           <button id="saveTokenButton" type="button">Guardar token</button>
           <button id="previewButton" type="button">Vista previa</button>
@@ -74,6 +83,7 @@
       <section class="stage-wrap">
         <div id="stage" class="stage format-16-9">
           <div id="map"></div>
+          <canvas id="cloudLayer" aria-hidden="true"></canvas>
         </div>
       </section>
     </main>
