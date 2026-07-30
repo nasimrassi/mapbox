@@ -194,13 +194,6 @@ button:disabled {
   opacity: 0.55;
 }
 
-.timeline-panel summary span:last-child {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 #timelineInput {
   min-height: 28px;
   padding: 0;
@@ -229,7 +222,9 @@ button:disabled {
 
 .stage-wrap {
   display: grid;
-  place-items: center;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
   padding: 34px;
   background: #0b0d0d;
 }
@@ -237,11 +232,38 @@ button:disabled {
 .stage {
   position: relative;
   width: min(100%, 1280px);
-  max-height: calc(100vh - 68px);
+  max-height: calc(100vh - 132px);
   overflow: hidden;
   background: #050505;
   border: 1px solid #222;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+
+.playback-panel {
+  display: grid;
+  gap: 4px;
+  width: min(100%, 1280px);
+}
+
+.format-9-16 + .playback-panel {
+  width: min(100%, 460px);
+}
+
+.format-1-1 + .playback-panel {
+  width: min(100%, 760px);
+}
+
+.playback-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.playback-header span {
+  white-space: nowrap;
 }
 
 .format-16-9 {

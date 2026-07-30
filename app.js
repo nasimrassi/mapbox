@@ -13,6 +13,26 @@ const TERRAIN_EXAGGERATION = {
   natural: 1.2,
   dramatic: 1.8
 };
+const EXPORT_RESOLUTIONS = {
+  "1080p": {
+    landscape: { width: 1920, height: 1080 },
+    portrait: { width: 1080, height: 1920 },
+    square: { width: 1080, height: 1080 },
+    bitrate: 12_000_000
+  },
+  "2k": {
+    landscape: { width: 2560, height: 1440 },
+    portrait: { width: 1440, height: 2560 },
+    square: { width: 1440, height: 1440 },
+    bitrate: 24_000_000
+  },
+  "4k": {
+    landscape: { width: 3840, height: 2160 },
+    portrait: { width: 2160, height: 3840 },
+    square: { width: 2160, height: 2160 },
+    bitrate: 45_000_000
+  }
+};
 
 const stories = [
   {
@@ -108,6 +128,7 @@ const els = {
   objectsSelect: document.querySelector("#objectsSelect"),
   cloudSelect: document.querySelector("#cloudSelect"),
   boundarySelect: document.querySelector("#boundarySelect"),
+  resolutionSelect: document.querySelector("#resolutionSelect"),
   fpsInput: document.querySelector("#fpsInput"),
   timelineInput: document.querySelector("#timelineInput"),
   timelineText: document.querySelector("#timelineText"),
@@ -602,7 +623,7 @@ function startRecording() {
     : "video/webm";
 
   recordedChunks = [];
-  recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12_000_000 });
+  recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: getExportBitrate() });
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) recordedChunks.push(event.data);
   };
@@ -638,7 +659,7 @@ function downloadStillFrame() {
   context.drawImage(map.getCanvas(), 0, 0, exportCanvas.width, exportCanvas.height);
 
   const link = document.createElement("a");
-  const slug = `${currentStory.id}-${els.formatSelect.value.replace(":", "x")}`;
+  const slug = getExportSlug();
   link.href = exportCanvas.toDataURL("image/png");
   link.download = `${slug}-mapbox-still.png`;
   link.click();
@@ -646,17 +667,30 @@ function downloadStillFrame() {
 }
 
 function getExportSize() {
+  const profile = getExportProfile();
   const format = els.formatSelect.value;
-  if (format === "9:16") return { width: 1080, height: 1920 };
-  if (format === "1:1") return { width: 1080, height: 1080 };
-  return { width: 1920, height: 1080 };
+  if (format === "9:16") return profile.portrait;
+  if (format === "1:1") return profile.square;
+  return profile.landscape;
+}
+
+function getExportBitrate() {
+  return getExportProfile().bitrate;
+}
+
+function getExportProfile() {
+  return EXPORT_RESOLUTIONS[els.resolutionSelect.value] || EXPORT_RESOLUTIONS["1080p"];
+}
+
+function getExportSlug() {
+  return `${currentStory.id}-${els.formatSelect.value.replace(":", "x")}-${els.resolutionSelect.value}`;
 }
 
 function downloadRecording() {
   const blob = new Blob(recordedChunks, { type: "video/webm" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const slug = `${currentStory.id}-${els.formatSelect.value.replace(":", "x")}`;
+  const slug = getExportSlug();
   link.href = url;
   link.download = `${slug}-mapbox-animation.webm`;
   link.click();

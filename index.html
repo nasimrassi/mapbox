@@ -119,23 +119,24 @@
           </div>
         </details>
 
-        <details class="timeline-panel tool-section" open>
-          <summary>
-            <span>Linea de tiempo</span>
-            <span id="timelineText">0:00 / 0:00</span>
-          </summary>
-          <div class="section-body">
-            <input id="timelineInput" type="range" min="0" max="0" step="16" value="0">
-          </div>
-        </details>
-
         <details class="tool-section" open>
           <summary>Exportar</summary>
           <div class="section-body">
-            <label class="field">
-              <span>FPS export</span>
-              <input id="fpsInput" type="number" min="24" max="60" value="24">
-            </label>
+            <div class="grid-two">
+              <label class="field">
+                <span>Resolucion</span>
+                <select id="resolutionSelect">
+                  <option value="1080p" selected>1080p</option>
+                  <option value="2k">2K</option>
+                  <option value="4k">4K</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>FPS export</span>
+                <input id="fpsInput" type="number" min="24" max="60" value="24">
+              </label>
+            </div>
 
             <div class="button-row">
               <button id="previewButton" type="button">Vista previa</button>
@@ -165,6 +166,13 @@
         <div id="stage" class="stage format-16-9">
           <div id="map"></div>
         </div>
+
+        <section class="playback-panel" aria-label="Linea de tiempo">
+          <div class="playback-header">
+            <span id="timelineText">0:00 / 0:00</span>
+          </div>
+          <input id="timelineInput" type="range" min="0" max="0" step="16" value="0">
+        </section>
       </section>
     </main>
 
