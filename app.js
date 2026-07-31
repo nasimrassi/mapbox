@@ -217,7 +217,7 @@ function bindEvents() {
     renderStory();
     jumpToFirstShot();
     setTimelineElapsed(0);
-    setStatus("Proyecto cargado", "La ruta del Director no cambia hasta que uses Cargar ruta del proyecto.");
+    setStatus("Proyecto cargado", "La ruta de Trazo no cambia hasta que uses Cargar ruta del proyecto.");
   });
 
   els.styleSelect.addEventListener("change", () => {
@@ -302,7 +302,7 @@ function setViewerMode() {
   setMapInteractivity(isDirector, isDirector ? "crosshair" : "");
 
   if (isDirector) {
-    setStatus("Modo Director activado", "Mueve el mapa libremente; haz click para agregar puntos o guarda tomas.");
+    setStatus("Modo Trazo activado", "Haz click directo sobre el mapa para colocar puntos; usa Agregar centro solo si quieres marcar la camara.");
   } else {
     setStatus("Modo animacion activado", "El visor queda listo para timeline, vista previa y exportacion.");
   }
@@ -332,6 +332,7 @@ function setMapInteraction(handler, enabled) {
 
 function handleMapClick(event) {
   if (els.viewerModeSelect.value !== "director") return;
+  event.preventDefault();
   addRoutePoint([event.lngLat.lng, event.lngLat.lat]);
 }
 
@@ -356,6 +357,7 @@ function addRoutePointFromCenter() {
 
   const center = map.getCenter();
   addRoutePoint([center.lng, center.lat]);
+  setStatus("Centro agregado", "Se agrego como punto el centro actual de la camara.");
 }
 
 function addRoutePoint(coordinate) {
@@ -379,12 +381,12 @@ function undoRoutePoint() {
 
 function clearRoutePoints() {
   resetRouteDraft();
-  setStatus("Ruta limpia", "Marca nuevos puntos en el mapa o agrega el centro actual.");
+  setStatus("Ruta limpia", "Haz click en el mapa para marcar nuevos puntos.");
 }
 
 function generateAnimationFromRoute() {
   if (routePoints.length < 2) {
-    setStatus("Faltan puntos", "Marca por lo menos dos puntos para generar una animacion.");
+    setStatus("Faltan puntos", "Haz click en el mapa para marcar por lo menos dos puntos.");
     return;
   }
 
