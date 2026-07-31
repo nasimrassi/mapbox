@@ -36,6 +36,12 @@ const EXPORT_RESOLUTIONS = {
     bitrate: 45_000_000
   }
 };
+const DEFAULT_ANIMATION_BRIEF = {
+  cameraMove: "globe",
+  pace: "smooth",
+  durationSeconds: 18,
+  ending: "hold"
+};
 
 const stories = [
   {
@@ -119,6 +125,8 @@ const stories = [
 const els = {
   tokenInput: document.querySelector("#tokenInput"),
   saveTokenButton: document.querySelector("#saveTokenButton"),
+  projectModeButton: document.querySelector("#projectModeButton"),
+  traceModeButton: document.querySelector("#traceModeButton"),
   previewButton: document.querySelector("#previewButton"),
   recordButton: document.querySelector("#recordButton"),
   stillButton: document.querySelector("#stillButton"),
@@ -129,6 +137,15 @@ const els = {
   generateRouteButton: document.querySelector("#generateRouteButton"),
   saveShotButton: document.querySelector("#saveShotButton"),
   storySelect: document.querySelector("#storySelect"),
+  routeStorySelect: document.querySelector("#routeStorySelect"),
+  routeSourceSummary: document.querySelector("#routeSourceSummary"),
+  animationPromptInput: document.querySelector("#animationPromptInput"),
+  cameraMoveSelect: document.querySelector("#cameraMoveSelect"),
+  paceSelect: document.querySelector("#paceSelect"),
+  durationInput: document.querySelector("#durationInput"),
+  endingSelect: document.querySelector("#endingSelect"),
+  applyBriefButton: document.querySelector("#applyBriefButton"),
+  copyBriefButton: document.querySelector("#copyBriefButton"),
   formatSelect: document.querySelector("#formatSelect"),
   styleSelect: document.querySelector("#styleSelect"),
   lightSelect: document.querySelector("#lightSelect"),
@@ -137,7 +154,6 @@ const els = {
   objectsSelect: document.querySelector("#objectsSelect"),
   cloudSelect: document.querySelector("#cloudSelect"),
   boundarySelect: document.querySelector("#boundarySelect"),
-  viewerModeSelect: document.querySelector("#viewerModeSelect"),
   resolutionSelect: document.querySelector("#resolutionSelect"),
   fpsInput: document.querySelector("#fpsInput"),
   timelineInput: document.querySelector("#timelineInput"),
@@ -152,6 +168,7 @@ const els = {
 let map;
 let currentStory = stories[0];
 let routePoints = [];
+let workMode = "project";
 let animationFrame = 0;
 let isAnimating = false;
 let recorder;
@@ -168,6 +185,7 @@ function init() {
     option.value = story.id;
     option.textContent = `${story.location} - ${story.episode}`;
     els.storySelect.append(option);
+    els.routeStorySelect.append(option.cloneNode(true));
   });
 
   const savedToken = localStorage.getItem(MAPBOX_TOKEN_KEY);
@@ -178,7 +196,9 @@ function init() {
 
   renderStory();
   renderRoutePointList();
+  updateRouteSourceSummary();
   bindEvents();
+  setWorkMode("project");
 }
 
 function bindEvents() {
@@ -193,17 +213,21 @@ function bindEvents() {
     createMap(token);
   });
 
+  els.projectModeButton.addEventListener("click", () => setWorkMode("project"));
+  els.traceModeButton.addEventListener("click", () => setWorkMode("trace"));
   els.previewButton.addEventListener("click", () => playAnimation(false));
   els.recordButton.addEventListener("click", () => playAnimation(true));
   els.stillButton.addEventListener("click", downloadStillFrame);
   els.loadProjectRouteButton.addEventListener("click", loadRouteFromProject);
+  els.routeStorySelect.addEventListener("change", updateRouteSourceSummary);
   els.addPointButton.addEventListener("click", addRoutePointFromCenter);
   els.undoPointButton.addEventListener("click", undoRoutePoint);
   els.clearRouteButton.addEventListener("click", clearRoutePoints);
   els.generateRouteButton.addEventListener("click", generateAnimationFromRoute);
   els.saveShotButton.addEventListener("click", saveCurrentShot);
+  els.applyBriefButton.addEventListener("click", applyAnimationBrief);
+  els.copyBriefButton.addEventListener("click", copyAnimationBrief);
   els.timelineInput.addEventListener("input", scrubTimeline);
-  els.viewerModeSelect.addEventListener("change", setViewerMode);
   document.addEventListener("keydown", handleShortcut);
   els.lightSelect.addEventListener("change", applyBasemapLook);
   els.themeSelect.addEventListener("change", applyBasemapLook);
@@ -214,10 +238,11 @@ function bindEvents() {
 
   els.storySelect.addEventListener("change", () => {
     currentStory = getSelectedStory();
+    syncRouteStorySelectionFromProject();
     renderStory();
     jumpToFirstShot();
     setTimelineElapsed(0);
-    setStatus("Proyecto cargado", "La ruta de Trazo no cambia hasta que uses Cargar ruta del proyecto.");
+    setStatus("Proyecto cargado", "La ruta de Trazo no cambia hasta que uses Cargar ruta.");
   });
 
   els.styleSelect.addEventListener("change", () => {
@@ -226,9 +251,13 @@ function bindEvents() {
   });
 
   els.formatSelect.addEventListener("change", () => {
-    els.stage.className = `stage format-${els.formatSelect.value.replace(":", "-")}`;
-    setTimeout(() => map?.resize(), 100);
+    applyStageFormat();
   });
+}
+
+function applyStageFormat() {
+  els.stage.className = `stage format-${els.formatSelect.value.replace(":", "-")}`;
+  setTimeout(() => map?.resize(), 100);
 }
 
 function createMap(token) {
@@ -264,7 +293,7 @@ function createMap(token) {
   });
 
   map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
-  setViewerMode();
+  setWorkMode(workMode);
   map.on("click", handleMapClick);
 
   map.on("style.load", () => {
@@ -294,17 +323,37 @@ function createMap(token) {
   });
 }
 
-function setViewerMode() {
-  if (!map) return;
+function setWorkMode(mode) {
+  const nextMode = mode === "trace" ? "trace" : "project";
+  const previousMode = workMode;
+  workMode = nextMode;
+  document.body.dataset.workMode = nextMode;
+  els.projectModeButton.classList.toggle("is-active", nextMode === "project");
+  els.traceModeButton.classList.toggle("is-active", nextMode === "trace");
+  els.projectModeButton.setAttribute("aria-pressed", String(nextMode === "project"));
+  els.traceModeButton.setAttribute("aria-pressed", String(nextMode === "trace"));
 
-  const mode = els.viewerModeSelect.value;
-  const isDirector = mode === "director";
-  setMapInteractivity(isDirector, isDirector ? "crosshair" : "");
+  if (nextMode === "trace" && previousMode !== "trace") {
+    syncRouteStorySelectionFromProject();
+    resetRouteDraft();
+  }
 
-  if (isDirector) {
-    setStatus("Modo Trazo activado", "Haz click directo sobre el mapa para colocar puntos; usa Agregar centro solo si quieres marcar la camara.");
+  if (map) {
+    setMapInteractivity(nextMode === "trace", nextMode === "trace" ? "crosshair" : "");
+  }
+
+  setControls(!isAnimating);
+
+  if (nextMode === "trace") {
+    if (map) {
+      setStatus("Modo Trazo activado", "Haz click directo sobre el mapa para colocar puntos. Cargar ruta solo importa el proyecto base elegido.");
+    } else {
+      setStatus("Falta el mapa", "Guarda primero tu token publico de Mapbox para empezar a trazar.");
+    }
+  } else if (map) {
+    setStatus("Modo Proyecto activado", "El visor queda listo para timeline, vista previa y exportacion.");
   } else {
-    setStatus("Modo animacion activado", "El visor queda listo para timeline, vista previa y exportacion.");
+    setStatus("Listo para configurar", "Pega tu token publico de Mapbox y guarda. Luego prueba una ruta y graba el mapa animado.");
   }
 }
 
@@ -331,13 +380,13 @@ function setMapInteraction(handler, enabled) {
 }
 
 function handleMapClick(event) {
-  if (els.viewerModeSelect.value !== "director") return;
+  if (!isTraceMode()) return;
   event.preventDefault();
   addRoutePoint([event.lngLat.lng, event.lngLat.lat]);
 }
 
 function loadRouteFromProject() {
-  const selectedStory = getSelectedStory();
+  const selectedStory = getRouteSourceStory();
   if (!selectedStory.route?.length) {
     setStatus("Sin ruta en proyecto", "Este proyecto no tiene puntos de ruta para cargar.");
     return;
@@ -391,24 +440,262 @@ function generateAnimationFromRoute() {
   }
 
   const route = routePoints.map((point) => [...point]);
-  const shots = createRouteShots(route);
+  const brief = getAnimationBriefSettings();
+  syncBriefControls(brief);
+  applyBriefLookHints(brief.prompt);
+  const shots = createRouteShots(route, brief);
   currentStory = {
     id: "ruta-personalizada",
     location: "Ruta personalizada",
-    episode: `${route.length} puntos`,
+    episode: `${route.length} puntos · ${brief.durationSeconds}s`,
     route,
     shots
   };
 
+  syncProjectSelectWithCurrentStory();
+  renderStory();
+  updateRouteLayer();
+  setWorkMode("project");
+  setTimelineElapsed(0, true);
+  setStatus("Ruta enviada a Proyecto", "Se genero una primera animacion con la direccion actual.");
+}
+
+function applyAnimationBrief() {
+  if (!isProjectMode()) {
+    setStatus("Cambia a Proyecto", "La direccion creativa se aplica sobre el proyecto activo.");
+    return;
+  }
+
+  if (!currentStory.route?.length || currentStory.route.length < 2) {
+    setStatus("Falta una ruta", "Traza por lo menos dos puntos y usa la ruta en Proyecto.");
+    return;
+  }
+
+  const brief = getAnimationBriefSettings();
+  syncBriefControls(brief);
+  applyBriefLookHints(brief.prompt);
+  const route = currentStory.route.map((point) => [...point]);
+
+  currentStory = {
+    ...currentStory,
+    animation: "keyframes",
+    flyTo: null,
+    globeSpin: null,
+    route,
+    shots: createRouteShots(route, brief)
+  };
+
+  syncProjectSelectWithCurrentStory();
   renderStory();
   updateRouteLayer();
   setTimelineElapsed(0, true);
-  setStatus("Animacion generada", "Revisa el timeline, guarda tomas extra o exporta el video.");
+  setStatus("Direccion aplicada", `${currentStory.shots.length} tomas · ${brief.durationSeconds}s · ${getCameraMoveLabel(brief.cameraMove)}.`);
+}
+
+function getAnimationBriefSettings() {
+  const prompt = els.animationPromptInput.value.trim();
+  const hints = getPromptBriefHints(prompt);
+
+  return {
+    prompt,
+    cameraMove: hints.cameraMove || els.cameraMoveSelect.value || DEFAULT_ANIMATION_BRIEF.cameraMove,
+    pace: hints.pace || els.paceSelect.value || DEFAULT_ANIMATION_BRIEF.pace,
+    durationSeconds: hints.durationSeconds || clamp(Number(els.durationInput.value) || DEFAULT_ANIMATION_BRIEF.durationSeconds, 6, 90),
+    ending: hints.ending || els.endingSelect.value || DEFAULT_ANIMATION_BRIEF.ending
+  };
+}
+
+function getPromptBriefHints(prompt) {
+  const text = normalizePromptText(prompt);
+  const hints = {};
+  const durationMatch = text.match(/(\d{1,2})\s*(s|seg|segundos|seconds)/);
+
+  if (durationMatch) {
+    hints.durationSeconds = clamp(Number(durationMatch[1]), 6, 90);
+  }
+
+  if (text.includes("cenital") || text.includes("top down") || text.includes("2d")) {
+    hints.cameraMove = "topdown";
+  } else if (text.includes("seguimiento") || text.includes("sobrevuelo") || text.includes("follow")) {
+    hints.cameraMove = "follow";
+  } else if (text.includes("globo") || text.includes("nasa") || text.includes("documental")) {
+    hints.cameraMove = "globe";
+  }
+
+  if (text.includes("rapido") || text.includes("dinamico")) {
+    hints.pace = "fast";
+  } else if (text.includes("lento") || text.includes("pausado") || text.includes("suave")) {
+    hints.pace = text.includes("lento") || text.includes("pausado") ? "slow" : "smooth";
+  }
+
+  if (text.includes("vista general") || text.includes("overview")) {
+    hints.ending = "overview";
+  } else if (text.includes("ultimo punto")) {
+    hints.ending = "last";
+  } else if (text.includes("final fijo") || text.includes("toma fija") || text.includes("pausa")) {
+    hints.ending = "hold";
+  }
+
+  return hints;
+}
+
+function syncBriefControls(brief) {
+  setSelectValue(els.cameraMoveSelect, brief.cameraMove);
+  setSelectValue(els.paceSelect, brief.pace);
+  setSelectValue(els.endingSelect, brief.ending);
+  els.durationInput.value = String(brief.durationSeconds);
+}
+
+function applyBriefLookHints(prompt) {
+  const text = normalizePromptText(prompt);
+
+  if (text.includes("vertical") || text.includes("short") || text.includes("reel") || text.includes("tiktok")) {
+    els.formatSelect.value = "9:16";
+    applyStageFormat();
+  } else if (text.includes("cuadrado") || text.includes("square")) {
+    els.formatSelect.value = "1:1";
+    applyStageFormat();
+  } else if (text.includes("horizontal") || text.includes("youtube")) {
+    els.formatSelect.value = "16:9";
+    applyStageFormat();
+  }
+
+  if (text.includes("4k")) {
+    els.resolutionSelect.value = "4k";
+  } else if (text.includes("2k")) {
+    els.resolutionSelect.value = "2k";
+  }
+
+  if (text.includes("oscuro") || text.includes("dark")) {
+    setMapStyleValue("mapbox://styles/mapbox/dark-v11");
+  } else if (text.includes("satelital") || text.includes("satellite") || text.includes("nasa")) {
+    setMapStyleValue("mapbox://styles/mapbox/standard-satellite");
+  }
+
+  if (text.includes("sin nubes")) {
+    els.cloudSelect.value = "off";
+    setNasaCloudLayer();
+  } else if (text.includes("nubes") || text.includes("nasa") || text.includes("cinematograf")) {
+    els.cloudSelect.value = "cinematic";
+    setNasaCloudLayer();
+  }
+
+  if (text.includes("sin relieve")) {
+    els.terrainSelect.value = "off";
+    setTerrainMode();
+  } else if (text.includes("dramatic") || text.includes("dramatico") || text.includes("relieve") || text.includes("montana")) {
+    els.terrainSelect.value = "dramatic";
+    setTerrainMode();
+  }
+}
+
+function copyAnimationBrief() {
+  const briefText = buildAnimationBriefText();
+  copyTextToClipboard(briefText)
+    .then(() => {
+      setStatus("Brief copiado", "Pegamelo en Codex cuando quieras que ajuste la animacion con mas detalle.");
+    })
+    .catch(() => {
+      setStatus("No se pudo copiar", "El navegador bloqueo el portapapeles. Selecciona el texto del brief y copialo manualmente.");
+    });
+}
+
+function buildAnimationBriefText() {
+  const brief = getAnimationBriefSettings();
+  const route = currentStory.route?.length ? currentStory.route : routePoints;
+
+  return [
+    "Mapbox Video Studio - brief de animacion",
+    "",
+    `Proyecto: ${currentStory.location} - ${currentStory.episode}`,
+    `Formato: ${els.formatSelect.value}`,
+    `Resolucion: ${els.resolutionSelect.value}`,
+    `Duracion objetivo: ${brief.durationSeconds}s`,
+    `Camara: ${getCameraMoveLabel(brief.cameraMove)}`,
+    `Ritmo: ${getPaceLabel(brief.pace)}`,
+    `Final: ${getEndingLabel(brief.ending)}`,
+    "",
+    "Prompt:",
+    brief.prompt || "(sin prompt libre)",
+    "",
+    "Ruta:",
+    JSON.stringify(route, null, 2),
+    "",
+    "Tomas actuales:",
+    JSON.stringify(currentStory.shots, null, 2)
+  ].join("\n");
+}
+
+function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+
+  return new Promise((resolve, reject) => {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+
+    try {
+      document.execCommand("copy");
+      resolve();
+    } catch (error) {
+      reject(error);
+    } finally {
+      textarea.remove();
+    }
+  });
+}
+
+function normalizePromptText(text) {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function setSelectValue(select, value) {
+  if ([...select.options].some((option) => option.value === value)) {
+    select.value = value;
+  }
+}
+
+function setMapStyleValue(styleUrl) {
+  if (els.styleSelect.value === styleUrl) return;
+  els.styleSelect.value = styleUrl;
+  if (map) map.setStyle(styleUrl);
+}
+
+function getCameraMoveLabel(cameraMove) {
+  if (cameraMove === "follow") return "Seguimiento inclinado";
+  if (cameraMove === "topdown") return "Cenital 2D";
+  return "Globo a ruta";
+}
+
+function getPaceLabel(pace) {
+  if (pace === "slow") return "Lento";
+  if (pace === "fast") return "Rapido";
+  return "Suave";
+}
+
+function getEndingLabel(ending) {
+  if (ending === "overview") return "Vista general";
+  if (ending === "last") return "Ultimo punto";
+  return "Toma fija";
 }
 
 function saveCurrentShot() {
   if (!map) {
     setStatus("Falta el mapa", "Guarda primero tu token publico de Mapbox.");
+    return;
+  }
+
+  if (!isProjectMode()) {
+    setStatus("Cambia a Proyecto", "Las tomas se guardan sobre el proyecto activo.");
     return;
   }
 
@@ -442,30 +729,32 @@ function handleShortcut(event) {
   if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
 
   const key = event.key.toLowerCase();
-  if (key === "r") {
+  if (key === "r" && isTraceMode()) {
     event.preventDefault();
     loadRouteFromProject();
-  } else if (key === "a") {
+  } else if (key === "a" && isTraceMode()) {
     event.preventDefault();
     addRoutePointFromCenter();
-  } else if (key === "z") {
+  } else if (key === "z" && isTraceMode()) {
     event.preventDefault();
     undoRoutePoint();
-  } else if (key === "x") {
+  } else if (key === "x" && isTraceMode()) {
     event.preventDefault();
     clearRoutePoints();
-  } else if (key === "g") {
+  } else if (key === "g" && isTraceMode()) {
     event.preventDefault();
     generateAnimationFromRoute();
-  } else if (key === "k") {
+  } else if (key === "k" && isProjectMode()) {
     event.preventDefault();
     saveCurrentShot();
-  } else if (key === "c") {
+  } else if (key === "c" && isProjectMode()) {
     event.preventDefault();
     downloadStillFrame();
   } else if (event.code === "Space" && !isAnimating) {
     event.preventDefault();
-    playAnimation(false);
+    if (isProjectMode()) {
+      playAnimation(false);
+    }
   }
 }
 
@@ -475,7 +764,41 @@ function isTypingTarget(target) {
 }
 
 function getSelectedStory() {
-  return stories.find((story) => story.id === els.storySelect.value) || stories[0];
+  return getStoryById(els.storySelect.value);
+}
+
+function getRouteSourceStory() {
+  return getStoryById(els.routeStorySelect.value);
+}
+
+function getStoryById(id) {
+  if (currentStory.id === id) return currentStory;
+  return stories.find((story) => story.id === id) || stories[0];
+}
+
+function syncRouteStorySelectionFromProject() {
+  if (stories.some((story) => story.id === els.storySelect.value)) {
+    els.routeStorySelect.value = els.storySelect.value;
+  }
+  updateRouteSourceSummary();
+}
+
+function updateRouteSourceSummary() {
+  const selectedStory = getRouteSourceStory();
+  const points = selectedStory.route?.length || 0;
+  els.routeSourceSummary.textContent = `Vas a cargar: ${selectedStory.location} - ${selectedStory.episode} · ${points} puntos`;
+}
+
+function syncProjectSelectWithCurrentStory() {
+  let option = els.storySelect.querySelector(`option[value="${currentStory.id}"]`);
+  if (!option) {
+    option = document.createElement("option");
+    option.value = currentStory.id;
+    els.storySelect.append(option);
+  }
+
+  option.textContent = `${currentStory.location} - ${currentStory.episode}`;
+  els.storySelect.value = currentStory.id;
 }
 
 function resetRouteDraft() {
@@ -581,7 +904,7 @@ function getRouteGeoJson() {
   };
 }
 
-function createRouteShots(route) {
+function createRouteShots(route, brief = DEFAULT_ANIMATION_BRIEF) {
   const bounds = getRouteBounds(route);
   const center = [
     (bounds.minLng + bounds.maxLng) / 2,
@@ -590,30 +913,91 @@ function createRouteShots(route) {
   const distance = getRouteDistanceKm(route);
   const routeZoom = getRouteZoom(distance);
   const overviewBearing = getPointBearing(route[0], route[route.length - 1]) - 28;
-  const shots = [
-    {
-      label: "Vista general",
+  const cameraMove = brief.cameraMove || DEFAULT_ANIMATION_BRIEF.cameraMove;
+  const cameras = [];
+
+  if (cameraMove === "globe") {
+    cameras.push({
+      label: "Entrada desde el globo",
       center,
-      zoom: clamp(routeZoom - 2.1, 1.8, 7),
-      pitch: 18,
-      bearing: overviewBearing,
-      duration: 2200
-    }
-  ];
+      zoom: clamp(routeZoom - 5.1, 1.35, 3.2),
+      pitch: 0,
+      bearing: overviewBearing - 12
+    });
+  }
+
+  cameras.push({
+    label: "Vista general",
+    center,
+    zoom: clamp(routeZoom - 2.1, 1.8, 7),
+    pitch: cameraMove === "topdown" ? 0 : 18,
+    bearing: cameraMove === "topdown" ? 0 : overviewBearing
+  });
 
   route.forEach((point, index) => {
     const next = route[index + 1] || route[index];
-    shots.push({
+    cameras.push({
       label: index === 0 ? "Inicio" : index === route.length - 1 ? "Final" : `Punto ${index + 1}`,
       center: point,
-      zoom: routeZoom,
-      pitch: 58,
-      bearing: getPointBearing(point, next),
-      duration: index === route.length - 1 ? 0 : 2600
+      zoom: cameraMove === "topdown" ? clamp(routeZoom + 0.3, 1.8, 15.5) : routeZoom,
+      pitch: getRoutePitch(cameraMove),
+      bearing: cameraMove === "topdown" ? 0 : getPointBearing(point, next)
     });
   });
 
+  if (brief.ending === "overview") {
+    cameras.push({
+      label: "Cierre vista general",
+      center,
+      zoom: clamp(routeZoom - 1.7, 1.8, 7.5),
+      pitch: cameraMove === "topdown" ? 0 : 20,
+      bearing: cameraMove === "topdown" ? 0 : overviewBearing + 18
+    });
+  } else if (brief.ending === "hold") {
+    const lastCamera = cameras[cameras.length - 1];
+    cameras.push({
+      ...lastCamera,
+      label: "Pausa final"
+    });
+  }
+
+  const shots = cameras.map((camera) => ({ ...camera, duration: 0 }));
+  applyShotDurations(shots, brief);
   return shots;
+}
+
+function getRoutePitch(cameraMove) {
+  if (cameraMove === "topdown") return 0;
+  if (cameraMove === "follow") return 62;
+  return 56;
+}
+
+function applyShotDurations(shots, brief) {
+  if (shots.length < 2) return;
+
+  const totalDuration = clamp(Number(brief.durationSeconds) || DEFAULT_ANIMATION_BRIEF.durationSeconds, 6, 90) * 1000;
+  const weights = shots.slice(0, -1).map((shot, index) => {
+    if (brief.ending === "hold" && index === shots.length - 2) return 0.7;
+    if (index === 0 && shot.label.includes("globo")) return 1.45;
+    if (brief.pace === "fast") return index === 0 ? 0.8 : 1;
+    if (brief.pace === "slow") return index === 0 ? 1.25 : 1.1;
+    return 1;
+  });
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  let assignedDuration = 0;
+
+  shots.forEach((shot, index) => {
+    if (index === shots.length - 1) {
+      shot.duration = 0;
+      return;
+    }
+
+    const duration = Math.round(totalDuration * (weights[index] / totalWeight));
+    shot.duration = duration;
+    assignedDuration += duration;
+  });
+
+  shots[shots.length - 2].duration += totalDuration - assignedDuration;
 }
 
 function getRouteBounds(route) {
@@ -882,6 +1266,10 @@ function syncTimelineDuration() {
 }
 
 function scrubTimeline() {
+  if (!isProjectMode()) {
+    return;
+  }
+
   const elapsed = Number(els.timelineInput.value) || 0;
   cancelAnimationFrame(animationFrame);
   cancelAnimationFrame(timelineFrame);
@@ -920,6 +1308,11 @@ async function playAnimation(shouldRecord) {
     return;
   }
 
+  if (!isProjectMode()) {
+    setStatus("Cambia a Proyecto", "El timeline, la vista previa y la grabacion se usan desde el modo Proyecto.");
+    return;
+  }
+
   cancelAnimationFrame(animationFrame);
   map.stop();
   isAnimating = true;
@@ -953,7 +1346,7 @@ async function playAnimation(shouldRecord) {
   setTimelineElapsed(duration);
   isAnimating = false;
   setControls(true);
-  setViewerMode();
+  setWorkMode(workMode);
   setStatus(shouldRecord ? "Grabacion finalizada" : "Vista previa finalizada", "Puedes ajustar la historia, el estilo o el formato y volver a grabar.");
 }
 
@@ -1171,18 +1564,37 @@ function setMapCamera(camera) {
 }
 
 function setControls(enabled) {
-  els.previewButton.disabled = !enabled;
-  els.recordButton.disabled = !enabled;
-  els.stillButton.disabled = !enabled;
-  els.loadProjectRouteButton.disabled = !enabled;
-  els.addPointButton.disabled = !enabled;
-  els.undoPointButton.disabled = !enabled;
-  els.clearRouteButton.disabled = !enabled;
-  els.generateRouteButton.disabled = !enabled;
-  els.saveShotButton.disabled = !enabled;
-  els.timelineInput.disabled = !enabled;
-  els.viewerModeSelect.disabled = !enabled;
+  const projectMode = isProjectMode();
+  const traceMode = isTraceMode();
+  els.previewButton.disabled = !enabled || !projectMode;
+  els.recordButton.disabled = !enabled || !projectMode;
+  els.stillButton.disabled = !enabled || !projectMode;
+  els.animationPromptInput.disabled = !enabled || !projectMode;
+  els.cameraMoveSelect.disabled = !enabled || !projectMode;
+  els.paceSelect.disabled = !enabled || !projectMode;
+  els.durationInput.disabled = !enabled || !projectMode;
+  els.endingSelect.disabled = !enabled || !projectMode;
+  els.applyBriefButton.disabled = !enabled || !projectMode;
+  els.copyBriefButton.disabled = !enabled || !projectMode;
+  els.routeStorySelect.disabled = !enabled || !traceMode;
+  els.loadProjectRouteButton.disabled = !enabled || !traceMode;
+  els.addPointButton.disabled = !enabled || !traceMode;
+  els.undoPointButton.disabled = !enabled || !traceMode;
+  els.clearRouteButton.disabled = !enabled || !traceMode;
+  els.generateRouteButton.disabled = !enabled || !traceMode;
+  els.saveShotButton.disabled = !enabled || !projectMode;
+  els.timelineInput.disabled = !enabled || !projectMode;
+  els.projectModeButton.disabled = !enabled;
+  els.traceModeButton.disabled = !enabled;
   els.saveTokenButton.disabled = !enabled;
+}
+
+function isProjectMode() {
+  return workMode === "project";
+}
+
+function isTraceMode() {
+  return workMode === "trace";
 }
 
 function setStatus(title, text) {

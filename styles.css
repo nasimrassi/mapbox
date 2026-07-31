@@ -25,7 +25,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -86,7 +87,8 @@ h2 {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 42px;
   color: var(--text);
@@ -97,8 +99,16 @@ select {
   outline: none;
 }
 
+textarea {
+  min-height: 94px;
+  padding: 11px 12px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   border-color: var(--accent-2);
   box-shadow: 0 0 0 3px rgba(48, 199, 163, 0.18);
 }
@@ -109,10 +119,54 @@ select:focus {
   gap: 12px;
 }
 
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 4px;
+  background: #111513;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.mode-button {
+  min-height: 36px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.mode-button.is-active {
+  color: #071712;
+  background: var(--accent-2);
+}
+
+body[data-work-mode="project"] .mode-trace,
+body[data-work-mode="trace"] .mode-project {
+  display: none;
+}
+
 .button-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.route-loader {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.route-loader button {
+  min-width: 132px;
+}
+
+.route-source-summary {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .tool-section {
@@ -226,7 +280,6 @@ button {
   background: #d5ecff;
 }
 
-#loadProjectRouteButton,
 #generateRouteButton {
   grid-column: 1 / -1;
 }
@@ -236,10 +289,25 @@ button {
   background: var(--accent-2);
 }
 
+#applyBriefButton {
+  color: #071712;
+  background: var(--accent-2);
+}
+
+#copyBriefButton {
+  color: #071712;
+  background: #d5ecff;
+}
+
 #recordButton {
   grid-column: 1 / -1;
   color: var(--text);
   background: #3858ff;
+}
+
+#saveShotButton {
+  color: #071712;
+  background: #d5ecff;
 }
 
 button:disabled {
@@ -252,6 +320,11 @@ button:disabled {
   padding: 0;
   cursor: pointer;
   accent-color: var(--accent-2);
+}
+
+#timelineInput:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
 }
 
 .status-card,
@@ -360,7 +433,8 @@ button:disabled {
   }
 
   .grid-two,
-  .button-row {
+  .button-row,
+  .route-loader {
     grid-template-columns: 1fr;
   }
 

@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="./styles.css">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.js"></script>
   </head>
-  <body>
+  <body data-work-mode="project">
     <main class="app-shell">
       <aside class="control-panel" aria-label="Controles de animacion">
         <div class="brand-block">
@@ -16,7 +16,12 @@
           <h1>Mapbox Video Studio</h1>
         </div>
 
-        <details class="tool-section" open>
+        <div class="mode-switch" aria-label="Modo de trabajo">
+          <button id="projectModeButton" class="mode-button is-active" type="button" aria-pressed="true">Proyecto</button>
+          <button id="traceModeButton" class="mode-button" type="button" aria-pressed="false">Trazo</button>
+        </div>
+
+        <details class="tool-section mode-project" open>
           <summary>Proyecto</summary>
           <div class="section-body">
             <label class="field">
@@ -44,24 +49,74 @@
           </div>
         </details>
 
-        <details class="tool-section" open>
-          <summary>Trazo</summary>
+        <details class="tool-section mode-project" open>
+          <summary>Direccion</summary>
           <div class="section-body">
             <label class="field">
-              <span>Modo visor</span>
-              <select id="viewerModeSelect">
-                <option value="animation" selected>Animacion</option>
-                <option value="director">Trazar ruta</option>
-              </select>
+              <span>Brief</span>
+              <textarea id="animationPromptInput" rows="4" placeholder="Ej: documental NASA, globo al inicio, recorrido suave, final fijo de 2 segundos"></textarea>
             </label>
 
+            <div class="grid-two">
+              <label class="field">
+                <span>Camara</span>
+                <select id="cameraMoveSelect">
+                  <option value="globe" selected>Globo a ruta</option>
+                  <option value="follow">Seguimiento inclinado</option>
+                  <option value="topdown">Cenital 2D</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Ritmo</span>
+                <select id="paceSelect">
+                  <option value="slow">Lento</option>
+                  <option value="smooth" selected>Suave</option>
+                  <option value="fast">Rapido</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="grid-two">
+              <label class="field">
+                <span>Duracion</span>
+                <input id="durationInput" type="number" min="6" max="90" value="18">
+              </label>
+
+              <label class="field">
+                <span>Final</span>
+                <select id="endingSelect">
+                  <option value="hold" selected>Toma fija</option>
+                  <option value="overview">Vista general</option>
+                  <option value="last">Ultimo punto</option>
+                </select>
+              </label>
+            </div>
+
             <div class="button-row">
-              <button id="loadProjectRouteButton" type="button">Cargar ruta del proyecto</button>
+              <button id="applyBriefButton" type="button">Aplicar direccion</button>
+              <button id="copyBriefButton" type="button">Copiar para Codex</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="tool-section mode-trace" open>
+          <summary>Trazo</summary>
+          <div class="section-body">
+            <div class="route-loader">
+              <label class="field">
+                <span>Cargar ruta desde</span>
+                <select id="routeStorySelect"></select>
+              </label>
+              <button id="loadProjectRouteButton" type="button">Cargar esta ruta</button>
+              <p id="routeSourceSummary" class="route-source-summary"></p>
+            </div>
+
+            <div class="button-row">
               <button id="addPointButton" type="button">Agregar centro</button>
               <button id="undoPointButton" type="button">Deshacer punto</button>
               <button id="clearRouteButton" type="button">Limpiar ruta</button>
-              <button id="saveShotButton" type="button">Guardar toma</button>
-              <button id="generateRouteButton" type="button">Generar animacion</button>
+              <button id="generateRouteButton" type="button">Usar ruta en Proyecto</button>
             </div>
 
             <ol id="routePointList" class="route-point-list"></ol>
@@ -72,15 +127,12 @@
               <span><kbd>A</kbd> centro</span>
               <span><kbd>Z</kbd> deshacer</span>
               <span><kbd>X</kbd> limpiar</span>
-              <span><kbd>G</kbd> generar</span>
-              <span><kbd>K</kbd> toma</span>
-              <span><kbd>C</kbd> PNG</span>
-              <span><kbd>Space</kbd> preview</span>
+              <span><kbd>G</kbd> usar ruta</span>
             </div>
           </div>
         </details>
 
-        <details class="tool-section">
+        <details class="tool-section mode-project">
           <summary>Look</summary>
           <div class="section-body">
             <div class="grid-two">
@@ -155,7 +207,7 @@
           </div>
         </details>
 
-        <details class="tool-section" open>
+        <details class="tool-section mode-project" open>
           <summary>Exportar</summary>
           <div class="section-body">
             <div class="grid-two">
@@ -179,10 +231,15 @@
               <button id="stillButton" type="button">Capturar PNG</button>
               <button id="recordButton" type="button">Grabar WebM</button>
             </div>
+
+            <div class="shortcut-grid" aria-label="Atajos de exportacion">
+              <span><kbd>Space</kbd> preview</span>
+              <span><kbd>C</kbd> PNG</span>
+            </div>
           </div>
         </details>
 
-        <details class="status-card tool-section" aria-live="polite">
+        <details class="status-card tool-section" aria-live="polite" open>
           <summary>Estado</summary>
           <div class="section-body">
             <strong id="statusTitle">Listo para configurar</strong>
@@ -190,10 +247,14 @@
           </div>
         </details>
 
-        <details class="shot-list tool-section">
+        <details class="shot-list tool-section mode-project">
           <summary>Camara</summary>
           <div class="section-body">
+            <button id="saveShotButton" type="button">Guardar toma actual</button>
             <ol id="shotList"></ol>
+            <div class="shortcut-grid" aria-label="Atajos de camara">
+              <span><kbd>K</kbd> toma</span>
+            </div>
           </div>
         </details>
       </aside>
@@ -203,7 +264,7 @@
           <div id="map"></div>
         </div>
 
-        <section class="playback-panel" aria-label="Linea de tiempo">
+        <section class="playback-panel mode-project" aria-label="Linea de tiempo">
           <div class="playback-header">
             <span id="timelineText">0:00 / 0:00</span>
           </div>
