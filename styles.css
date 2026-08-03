@@ -86,6 +86,13 @@ h2 {
   font-weight: 700;
 }
 
+.field .token-help {
+  color: #f3bf7c;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 input,
 select,
 textarea {
@@ -121,7 +128,7 @@ textarea:focus {
 
 .mode-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   padding: 4px;
   background: #111513;
@@ -141,7 +148,11 @@ textarea:focus {
 }
 
 body[data-work-mode="project"] .mode-trace,
-body[data-work-mode="trace"] .mode-project {
+body[data-work-mode="project"] .mode-export,
+body[data-work-mode="trace"] .mode-project,
+body[data-work-mode="trace"] .mode-export,
+body[data-work-mode="export"] .mode-project,
+body[data-work-mode="export"] .mode-trace {
   display: none;
 }
 
@@ -158,6 +169,24 @@ body[data-work-mode="trace"] .mode-project {
   align-items: end;
 }
 
+.trace-step {
+  display: grid;
+  gap: 10px;
+}
+
+.trace-step + .trace-step {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.step-label {
+  color: #f3bf7c;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .route-loader button {
   min-width: 132px;
 }
@@ -167,6 +196,44 @@ body[data-work-mode="trace"] .mode-project {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.35;
+}
+
+.route-planner {
+  display: grid;
+  gap: 10px;
+}
+
+.route-trace-summary {
+  margin: 0;
+  color: #b9c7d2;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.color-select-row {
+  display: grid;
+  grid-template-columns: 1fr 34px;
+  gap: 8px;
+  align-items: center;
+}
+
+.route-color-swatch {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+}
+
+#calculateRoadRouteButton {
+  color: #071712;
+  background: #30c7a3;
+}
+
+#directRouteButton {
+  color: #dbe7ee;
+  background: #26313a;
+  border: 1px solid #3d4a53;
 }
 
 .tool-section {
@@ -299,10 +366,37 @@ button {
   background: #d5ecff;
 }
 
+#resetMapViewButton {
+  grid-column: 1 / -1;
+  color: #dbe7ee;
+  background: #26313a;
+  border: 1px solid #3d4a53;
+}
+
 #recordButton {
   grid-column: 1 / -1;
   color: var(--text);
   background: #3858ff;
+}
+
+#proExportButton {
+  grid-column: 1 / -1;
+  color: #201100;
+  background: #ff8a2a;
+}
+
+#copyFfmpegButton {
+  grid-column: 1 / -1;
+  color: #071712;
+  background: #ffd08a;
+}
+
+.export-progress {
+  min-height: 2.8em;
+  margin: 2px 0 0;
+  color: #b9c7d2;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 #saveShotButton {
@@ -392,6 +486,33 @@ button:disabled {
   white-space: nowrap;
 }
 
+.playback-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.playback-controls button {
+  min-height: 34px;
+  padding: 0 10px;
+  color: #dbe7ee;
+  background: #1b2329;
+  border: 1px solid #313b43;
+  font-size: 0.78rem;
+}
+
+#playPauseButton {
+  color: #071712;
+  background: #30c7a3;
+  border-color: #30c7a3;
+}
+
+#stopPlaybackButton {
+  color: #201100;
+  background: #ff8a2a;
+  border-color: #ff8a2a;
+}
+
 .format-16-9 {
   aspect-ratio: 16 / 9;
 }
@@ -434,7 +555,8 @@ button:disabled {
 
   .grid-two,
   .button-row,
-  .route-loader {
+  .route-loader,
+  .playback-controls {
     grid-template-columns: 1fr;
   }
 

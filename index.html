@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="./styles.css">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.js"></script>
   </head>
-  <body data-work-mode="project">
+  <body data-work-mode="trace">
     <main class="app-shell">
       <aside class="control-panel" aria-label="Controles de animacion">
         <div class="brand-block">
@@ -17,23 +17,25 @@
         </div>
 
         <div class="mode-switch" aria-label="Modo de trabajo">
-          <button id="projectModeButton" class="mode-button is-active" type="button" aria-pressed="true">Proyecto</button>
-          <button id="traceModeButton" class="mode-button" type="button" aria-pressed="false">Trazo</button>
+          <button id="traceModeButton" class="mode-button is-active" type="button" aria-pressed="true">Ruta</button>
+          <button id="projectModeButton" class="mode-button" type="button" aria-pressed="false">Render</button>
+          <button id="exportModeButton" class="mode-button" type="button" aria-pressed="false">Exportar</button>
         </div>
 
-        <details class="tool-section mode-project" open>
-          <summary>Proyecto</summary>
+        <details class="tool-section" open>
+          <summary>Proyecto base</summary>
           <div class="section-body">
             <label class="field">
               <span>Token publico de Mapbox</span>
               <input id="tokenInput" type="password" autocomplete="off" placeholder="pk...">
+              <span id="tokenHelpText" class="token-help"></span>
             </label>
 
             <button id="saveTokenButton" type="button">Guardar token</button>
 
             <div class="grid-two">
               <label class="field">
-                <span>Proyecto</span>
+                <span>Proyecto base</span>
                 <select id="storySelect"></select>
               </label>
 
@@ -50,7 +52,7 @@
         </details>
 
         <details class="tool-section mode-project" open>
-          <summary>Direccion</summary>
+          <summary>Render</summary>
           <div class="section-body">
             <label class="field">
               <span>Brief</span>
@@ -61,10 +63,34 @@
               <label class="field">
                 <span>Camara</span>
                 <select id="cameraMoveSelect">
-                  <option value="globe" selected>Globo a ruta</option>
-                  <option value="follow">Seguimiento inclinado</option>
-                  <option value="topdown">Cenital 2D</option>
+                  <option value="globe">Globo a ruta</option>
+                  <option value="follow" selected>Inclinada estable</option>
+                  <option value="topdown">Desde arriba</option>
                 </select>
+              </label>
+
+              <label class="field">
+                <span>Orientacion</span>
+                <select id="routeBearingModeSelect">
+                  <option value="north" selected>Norte arriba</option>
+                  <option value="route">Seguir ruta suave</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="grid-two">
+              <label class="field">
+                <span>Color de linea</span>
+                <div class="color-select-row">
+                  <select id="routeColorSelect">
+                    <option value="map-orange" selected>Naranja mapa</option>
+                    <option value="signal-blue">Azul ruta</option>
+                    <option value="electric-yellow">Amarillo energia</option>
+                    <option value="mint-green">Verde menta</option>
+                    <option value="documentary-white">Blanco documental</option>
+                  </select>
+                  <span id="routeColorSwatch" class="route-color-swatch" aria-hidden="true"></span>
+                </div>
               </label>
 
               <label class="field">
@@ -96,14 +122,27 @@
             <div class="button-row">
               <button id="applyBriefButton" type="button">Aplicar direccion</button>
               <button id="copyBriefButton" type="button">Copiar para Codex</button>
+              <button id="resetMapViewButton" type="button">Vista globo America</button>
             </div>
           </div>
         </details>
 
         <details class="tool-section mode-trace" open>
-          <summary>Trazo</summary>
+          <summary>Ruta</summary>
           <div class="section-body">
-            <div class="route-loader">
+            <div class="trace-step">
+              <span class="step-label">1 · Puntos en orden</span>
+              <div class="button-row">
+                <button id="addPointButton" type="button">Punto en centro</button>
+                <button id="undoPointButton" type="button">Deshacer punto</button>
+                <button id="clearRouteButton" type="button">Limpiar ruta</button>
+              </div>
+
+              <ol id="routePointList" class="route-point-list"></ol>
+            </div>
+
+            <div class="route-loader trace-step">
+              <span class="step-label">Opcional · Cargar base</span>
               <label class="field">
                 <span>Cargar ruta desde</span>
                 <select id="routeStorySelect"></select>
@@ -112,22 +151,40 @@
               <p id="routeSourceSummary" class="route-source-summary"></p>
             </div>
 
-            <div class="button-row">
-              <button id="addPointButton" type="button">Agregar centro</button>
-              <button id="undoPointButton" type="button">Deshacer punto</button>
-              <button id="clearRouteButton" type="button">Limpiar ruta</button>
-              <button id="generateRouteButton" type="button">Usar ruta en Proyecto</button>
+            <div class="route-planner trace-step">
+              <span class="step-label">2 · Convertir ruta</span>
+              <label class="field">
+                <span>Tipo de ruta</span>
+                <select id="routeProfileSelect">
+                  <option value="driving" selected>Ruta por carretera</option>
+                  <option value="driving-traffic">Carretera + trafico</option>
+                  <option value="walking">Caminata</option>
+                  <option value="cycling">Bicicleta</option>
+                </select>
+              </label>
+
+              <div class="button-row">
+                <button id="calculateRoadRouteButton" type="button">Calcular ruta</button>
+                <button id="directRouteButton" type="button">Linea directa</button>
+              </div>
+
+              <p id="routeTraceSummary" class="route-trace-summary"></p>
             </div>
 
-            <ol id="routePointList" class="route-point-list"></ol>
+            <div class="trace-step">
+              <span class="step-label">3 · Pasar a Render</span>
+              <button id="generateRouteButton" type="button">Usar en Render</button>
+            </div>
 
             <div class="shortcut-grid" aria-label="Atajos de teclado">
-              <span><kbd>R</kbd> ruta proyecto</span>
+              <span><kbd>R</kbd> ruta base</span>
               <span><kbd>Click</kbd> punto</span>
               <span><kbd>A</kbd> centro</span>
               <span><kbd>Z</kbd> deshacer</span>
               <span><kbd>X</kbd> limpiar</span>
               <span><kbd>G</kbd> usar ruta</span>
+              <span><kbd>D</kbd> calcular</span>
+              <span><kbd>L</kbd> directa</span>
             </div>
           </div>
         </details>
@@ -207,7 +264,7 @@
           </div>
         </details>
 
-        <details class="tool-section mode-project" open>
+        <details class="tool-section mode-export" open>
           <summary>Exportar</summary>
           <div class="section-body">
             <div class="grid-two">
@@ -230,10 +287,14 @@
               <button id="previewButton" type="button">Vista previa</button>
               <button id="stillButton" type="button">Capturar PNG</button>
               <button id="recordButton" type="button">Grabar WebM</button>
+              <button id="proExportButton" type="button">Exportar frames PNG</button>
+              <button id="copyFfmpegButton" type="button">Copiar FFmpeg</button>
             </div>
+            <p id="exportProgressText" class="export-progress" aria-live="polite"></p>
 
             <div class="shortcut-grid" aria-label="Atajos de exportacion">
-              <span><kbd>Space</kbd> preview</span>
+              <span><kbd>Space</kbd> play/pausa</span>
+              <span><kbd>Enter</kbd> play/stop</span>
               <span><kbd>C</kbd> PNG</span>
             </div>
           </div>
@@ -264,15 +325,21 @@
           <div id="map"></div>
         </div>
 
-        <section class="playback-panel mode-project" aria-label="Linea de tiempo">
+        <section class="playback-panel" aria-label="Linea de tiempo">
           <div class="playback-header">
             <span id="timelineText">0:00 / 0:00</span>
           </div>
           <input id="timelineInput" type="range" min="0" max="0" step="16" value="0">
+          <div class="playback-controls" aria-label="Controles de reproduccion">
+            <button id="jumpStartButton" type="button">Inicio</button>
+            <button id="playPauseButton" type="button">Reproducir</button>
+            <button id="stopPlaybackButton" type="button">Detener</button>
+            <button id="jumpEndButton" type="button">Fin</button>
+          </div>
         </section>
       </section>
     </main>
 
-    <script src="./app.js"></script>
+    <script src="./app.js?v=route-color-20260803-5"></script>
   </body>
 </html>
